@@ -1,4 +1,4 @@
-﻿from pathlib import Path
+from pathlib import Path
 
 import cv2
 import numpy as np
@@ -95,8 +95,6 @@ class CampusVehicleDetector:
             plates = [{k: d[k] for k in ("label", "confidence", "box")} for d in model_detections if d["type"] == "plate"]
             plates.extend(self._detect_plates(image, vehicles))
         plates = self._dedupe(plates, 0.45)[:8]
-        if not plates and self.ocr.extract_from_name(source_name):
-            plates.append(self._fallback_plate_from_vehicle(image, vehicles))
         for plate in plates:
             crop = self.crop(image, plate["box"])
             ocr_result = self.ocr.recognize(crop, source_name)
@@ -110,8 +108,18 @@ class CampusVehicleDetector:
         primary_vehicle_box = vehicles[0]["box"] if vehicles else None
         vehicle_type = self.ocr.infer_vehicle_type(source_name, primary_vehicle_box)
 
+        plate_numbers = self._unique_plate_numbers(plates)
+        status = "recognized" if plate_numbers else ("plate-found" if plates else "no-plate")
+        message = {
+            "recognized": "??????????",
+            "plate-found": "??????? OCR ????????",
+            "no-plate": "?????????????????????????",
+        }[status]
+
         return {
             "mode": mode,
+            "status": status,
+            "message": message,
             "vehicles": vehicles,
             "plates": plates,
             "vehicleType": vehicle_type,
@@ -119,7 +127,7 @@ class CampusVehicleDetector:
                 "vehicleCount": len(vehicles),
                 "plateCount": len(plates),
                 "avgConfidence": self._avg_confidence(vehicles + plates),
-                "plateNumbers": self._unique_plate_numbers(plates),
+                "plateNumbers": plate_numbers,
             },
         }
 
@@ -302,18 +310,39 @@ class CampusVehicleDetector:
             for x, y, w, h in detected:
                 box = [int(x), int(y), int(x + w), int(y + h)]
                 if self._plate_shape_ok(box):
-                    plates.append({"label": "车牌", "confidence": 0.78, "box": box})
-        search_regions = vehicles if vehicles else [{"box": [0, int(height * 0.25), width, height]}]
-        for vehicle in search_regions:
-            vx1, vy1, vx2, vy2 = vehicle["box"]
-            region_y1 = int(vy1 + (vy2 - vy1) * 0.45)
-            roi = image[region_y1:vy2, vx1:vx2]
+                    plates.append({"label": "??", "confidence": 0.78, "box": box})
+
+        for rx1, ry1, rx2, ry2, weight in self._plate_search_regions(image, vehicles):
+            roi = image[ry1:ry2, rx1:rx2]
             for box, confidence in self._find_plate_like_regions(roi):
                 x1, y1, x2, y2 = box
-                full_box = [vx1 + x1, region_y1 + y1, vx1 + x2, region_y1 + y2]
+                full_box = [rx1 + x1, ry1 + y1, rx1 + x2, ry1 + y2]
                 if self._plate_shape_ok(full_box):
-                    plates.append({"label": "车牌", "confidence": confidence, "box": full_box})
-        return plates[:8]
+                    plates.append({"label": "??", "confidence": round(min(0.95, confidence * weight), 3), "box": full_box})
+        return self._dedupe(plates, 0.35)[:8]
+
+    def _plate_search_regions(self, image, vehicles):
+        height, width = image.shape[:2]
+        regions = []
+        for vehicle in vehicles:
+            vx1, vy1, vx2, vy2 = vehicle["box"]
+            vh = max(1, vy2 - vy1)
+            regions.append((vx1, max(0, int(vy1 + vh * 0.35)), vx2, vy2, 1.08))
+            regions.append((vx1, vy1, vx2, vy2, 1.0))
+        regions.extend([
+            (0, 0, width, height, 0.92),
+            (0, int(height * 0.25), width, height, 0.95),
+            (0, int(height * 0.45), width, height, 0.98),
+        ])
+        clean = []
+        for x1, y1, x2, y2, weight in regions:
+            x1, y1 = max(0, x1), max(0, y1)
+            x2, y2 = min(width, x2), min(height, y2)
+            if x2 - x1 >= 50 and y2 - y1 >= 20:
+                item = (int(x1), int(y1), int(x2), int(y2), weight)
+                if item not in clean:
+                    clean.append(item)
+        return clean
 
     def _find_plate_like_regions(self, roi):
         if roi.size == 0:
@@ -331,10 +360,14 @@ class CampusVehicleDetector:
             x, y, w, h = cv2.boundingRect(contour)
             aspect = w / max(h, 1)
             area = w * h
-            if area < area_total * 0.002 or area > area_total * 0.18:
+            if area < area_total * 0.0012 or area > area_total * 0.2:
                 continue
-            if 2.0 <= aspect <= 6.5 and h >= 12 and w >= 45:
-                candidates.append(([x, y, x + w, y + h], round(0.58 + min(0.3, aspect / 20), 3)))
+            if 1.9 <= aspect <= 7.5 and h >= 10 and w >= 42:
+                density = cv2.countNonZero(closed[y:y + h, x:x + w]) / max(1, area)
+                if density < 0.08:
+                    continue
+                score = 0.54 + min(0.32, aspect / 22) + min(0.08, density / 4)
+                candidates.append(([x, y, x + w, y + h], round(score, 3)))
         candidates.sort(key=lambda item: (item[0][2] - item[0][0]) * (item[0][3] - item[0][1]), reverse=True)
         return candidates[:4]
 

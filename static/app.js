@@ -1,4 +1,4 @@
-﻿let fleetRecords = [];
+let fleetRecords = [];
 let passRecords = [];
 let accessLists = { white: [], black: [] };
 let systemSettings = {};
@@ -179,7 +179,8 @@ function setSelectedFile(file) {
 }
 
 function renderResult(data) {
-  mode.textContent = data.mode;
+  mode.textContent = data.message || data.mode;
+  mode.dataset.status = data.status || "recognized";
   vehicleCount.textContent = data.summary.vehicleCount;
   plateCount.textContent = data.summary.plateCount;
   avgConfidence.textContent = data.summary.avgConfidence;
@@ -191,6 +192,9 @@ function renderResult(data) {
   resultPreview.src = data.resultImage;
   resultPreview.classList.add("visible");
 
+  if (!recognizedPlate && data.message) {
+    matchHint.textContent = data.message;
+  }
   lookupVehicle(recognizedPlate, false, data.vehicleType);
   renderDetectionList(data);
   renderGallery(vehicleGallery, data.vehicleImages || [], "车辆返回图", "暂无车辆图片");

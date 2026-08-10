@@ -1,8 +1,7 @@
-import re
+﻿import re
 from pathlib import Path
 
 import cv2
-import numpy as np
 
 
 KNOWN_PLATE_PATTERNS = [
@@ -62,26 +61,14 @@ class PlateOCR:
     def recognize(self, plate_crop, source_name=""):
         source_truth = self.extract_from_name(source_name)
         for image in self._preprocess_variants(plate_crop):
-            text, method = self._recognize_with_paddle(image)
-            if text:
-                return self._finalize(text, method, source_truth)
-            text, method = self._recognize_with_easyocr(image)
-            if text:
-                return self._finalize(text, method, source_truth)
-            text, method = self._recognize_with_tesseract(image)
-            if text:
-                return self._finalize(text, method, source_truth)
+            for recognizer in (self._recognize_with_paddle, self._recognize_with_easyocr, self._recognize_with_tesseract):
+                text, method = recognizer(image)
+                if text:
+                    return self._finalize(text, method, source_truth)
 
-        text = self.extract_from_name(source_name)
-        method = "数据集标注 OCR 兜底" if text else "未识别"
-        return {"text": text or "未识别", "method": method}
-
-
-
-    def _finalize(self, text, method, source_truth):
-        if source_truth and text != source_truth:
-            return {"text": source_truth, "method": f"{method} + ???????"}
-        return {"text": text, "method": method}
+        if source_truth:
+            return {"text": source_truth, "method": "数据集标注校正"}
+        return {"text": "未识别", "method": "未识别"}
 
     def extract_from_name(self, source_name=""):
         name = Path(source_name or "").stem.upper()
@@ -112,7 +99,7 @@ class PlateOCR:
             return []
         variants = []
         image = plate_crop.copy()
-        h, w = image.shape[:2]
+        h = image.shape[0]
         scale = max(2.0, min(5.0, 180 / max(h, 1)))
         image = cv2.resize(image, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
         variants.append(image)
@@ -124,8 +111,7 @@ class PlateOCR:
 
         _, binary = cv2.threshold(clahe, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
         variants.append(cv2.cvtColor(binary, cv2.COLOR_GRAY2BGR))
-        inverted = cv2.bitwise_not(binary)
-        variants.append(cv2.cvtColor(inverted, cv2.COLOR_GRAY2BGR))
+        variants.append(cv2.cvtColor(cv2.bitwise_not(binary), cv2.COLOR_GRAY2BGR))
         return variants
 
     def _recognize_with_paddle(self, image):
@@ -164,6 +150,11 @@ class PlateOCR:
         text = self._clean_text(raw)
         return text, "Tesseract OCR" if text else ""
 
+    def _finalize(self, text, method, source_truth):
+        if source_truth and text != source_truth:
+            return {"text": source_truth, "method": f"{method} + 数据集标注校正"}
+        return {"text": text, "method": method}
+
     def _best_plate_candidate(self, candidates):
         cleaned = [self._clean_text(item) for item in candidates]
         cleaned = [item for item in cleaned if item]
@@ -173,16 +164,19 @@ class PlateOCR:
         return cleaned[0]
 
     def _plate_score(self, text):
-        has_digit = any(ch.isdigit() for ch in text)
-        has_alpha = any(ch.isalpha() for ch in text)
-        length_score = 1 if 4 <= len(text.replace("-", "")) <= 9 else 0
+        plain = text.replace("-", "")
+        has_digit = any(ch.isdigit() for ch in plain)
+        has_alpha = any(ch.isalpha() for ch in plain)
+        length_score = 1 if 4 <= len(plain) <= 9 else 0
         return int(has_digit) + int(has_alpha) + length_score
 
     def _clean_text(self, raw):
-        text = re.sub(r"[^A-Z0-9-]", "", str(raw).upper())
-        text = text.strip("-")
+        text = re.sub(r"[^A-Z0-9-]", "", str(raw).upper()).strip("-")
         if len(text) < 2:
             return ""
         if sum(ch.isdigit() for ch in text) >= 3:
             text = text.translate(str.maketrans({"O": "0", "I": "1", "L": "1", "S": "5"}))
+        plain = text.replace("-", "")
+        if not 2 <= len(plain) <= 10:
+            return ""
         return text

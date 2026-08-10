@@ -1,4 +1,4 @@
-﻿from pathlib import Path
+from pathlib import Path
 from uuid import uuid4
 import json
 import os
@@ -109,6 +109,8 @@ def detect():
     return jsonify(
         {
             "mode": result["mode"],
+            "status": result.get("status", "recognized"),
+            "message": result.get("message", ""),
             "summary": result["summary"],
             "vehicles": result["vehicles"],
             "plates": result["plates"],
