@@ -1,4 +1,4 @@
-﻿import re
+import re
 from pathlib import Path
 
 import cv2
@@ -40,14 +40,14 @@ class PlateOCR:
     def _load_paddleocr(self):
         try:
             from paddleocr import PaddleOCR
-            return PaddleOCR(use_angle_cls=True, lang="en", show_log=False)
+            return PaddleOCR(use_angle_cls=True, lang="ch", show_log=False)
         except Exception:
             return None
 
     def _load_easyocr(self):
         try:
             import easyocr
-            return easyocr.Reader(["en"], gpu=False, verbose=False)
+            return easyocr.Reader(["ch_sim", "en"], gpu=False, verbose=False)
         except Exception:
             return None
 
@@ -65,19 +65,29 @@ class PlateOCR:
                 text, method = recognizer(image)
                 if text:
                     return self._finalize(text, method, source_truth)
-
         if source_truth:
             return {"text": source_truth, "method": "数据集标注校正"}
-        return {"text": "未识别", "method": "未识别"}
+        if not any((self.paddle, self.easyocr, self.tesseract)):
+            return {"text": "未识别", "method": "未安装 OCR 引擎"}
+        return {"text": "未识别", "method": "OCR 未识别"}
 
     def extract_from_name(self, source_name=""):
         name = Path(source_name or "").stem.upper()
         name = re.sub(r"_JPG.*$", "", name)
         name = re.sub(r"\.RF.*$", "", name)
-        for pattern in KNOWN_PLATE_PATTERNS:
+        if name.startswith("CODEX-") or len(name) > 40:
+            return ""
+        anchored_patterns = [
+            r"^(BB\d{4})(?:_|$)",
+            r"^(\d{5,7})(?:_|$)",
+            r"^([A-Z]{2,4}-[A-Z0-9]{2,4})(?:_|$)",
+            r"^(EVSROCK)(?:_|$)",
+            r"^([A-Z]{1,3}\d{1,4}[A-Z]{0,3})(?:_|$)",
+        ]
+        for pattern in anchored_patterns:
             match = re.search(pattern, name)
             if match:
-                return self._clean_text(match.group(0))
+                return self._clean_text(match.group(1))
         return ""
 
     def infer_vehicle_type(self, source_name="", vehicle_box=None):
@@ -103,12 +113,10 @@ class PlateOCR:
         scale = max(2.0, min(5.0, 180 / max(h, 1)))
         image = cv2.resize(image, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
         variants.append(image)
-
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         gray = cv2.bilateralFilter(gray, 9, 75, 75)
         clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(gray)
         variants.append(cv2.cvtColor(clahe, cv2.COLOR_GRAY2BGR))
-
         _, binary = cv2.threshold(clahe, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
         variants.append(cv2.cvtColor(binary, cv2.COLOR_GRAY2BGR))
         variants.append(cv2.cvtColor(cv2.bitwise_not(binary), cv2.COLOR_GRAY2BGR))
@@ -133,7 +141,7 @@ class PlateOCR:
         if self.easyocr is None:
             return "", ""
         try:
-            result = self.easyocr.readtext(image, detail=0, allowlist="ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-")
+            result = self.easyocr.readtext(image, detail=0)
         except Exception:
             return "", ""
         text = self._best_plate_candidate(result)
@@ -142,9 +150,8 @@ class PlateOCR:
     def _recognize_with_tesseract(self, image):
         if self.tesseract is None:
             return "", ""
-        config = "--psm 7 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-"
         try:
-            raw = self.tesseract.image_to_string(image, config=config)
+            raw = self.tesseract.image_to_string(image, config="--psm 7")
         except Exception:
             return "", ""
         text = self._clean_text(raw)
@@ -171,12 +178,17 @@ class PlateOCR:
         return int(has_digit) + int(has_alpha) + length_score
 
     def _clean_text(self, raw):
-        text = re.sub(r"[^A-Z0-9-]", "", str(raw).upper()).strip("-")
+        text = str(raw).upper()
+        text = text.replace("·", "").replace(".", "").replace("-", "")
+        text = re.sub(r"[^一-龥A-Z0-9]", "", text)
         if len(text) < 2:
             return ""
         if sum(ch.isdigit() for ch in text) >= 3:
             text = text.translate(str.maketrans({"O": "0", "I": "1", "L": "1", "S": "5"}))
-        plain = text.replace("-", "")
-        if not 2 <= len(plain) <= 10:
-            return ""
-        return text
+        chinese_plate = re.search(r"([一-龥][A-Z][A-Z0-9]{4,6})", text)
+        if chinese_plate:
+            return chinese_plate.group(1)
+        latin_plate = re.search(r"([A-Z0-9]{4,10})", text)
+        if latin_plate:
+            return latin_plate.group(1)
+        return ""

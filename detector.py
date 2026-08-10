@@ -304,7 +304,9 @@ class CampusVehicleDetector:
     def _detect_plates(self, image, vehicles):
         height, width = image.shape[:2]
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        plates = []
+        plates = self._detect_blue_plates(image)
+        if plates:
+            return self._dedupe(plates, 0.35)[:4]
         if self.plate_cascade is not None:
             detected = self.plate_cascade.detectMultiScale(gray, scaleFactor=1.08, minNeighbors=3, minSize=(60, 18))
             for x, y, w, h in detected:
@@ -320,6 +322,40 @@ class CampusVehicleDetector:
                 if self._plate_shape_ok(full_box):
                     plates.append({"label": "??", "confidence": round(min(0.95, confidence * weight), 3), "box": full_box})
         return self._dedupe(plates, 0.35)[:8]
+
+
+    def _detect_blue_plates(self, image):
+        height, width = image.shape[:2]
+        hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+        lower = np.array([95, 45, 35], dtype=np.uint8)
+        upper = np.array([135, 255, 255], dtype=np.uint8)
+        mask = cv2.inRange(hsv, lower, upper)
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (9, 5))
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=2)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel, iterations=1)
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        candidates = []
+        image_area = height * width
+        for contour in contours:
+            x, y, w, h = cv2.boundingRect(contour)
+            area = w * h
+            aspect = w / max(1, h)
+            if area < image_area * 0.00045 or area > image_area * 0.04:
+                continue
+            if not 2.0 <= aspect <= 5.8:
+                continue
+            if w < 70 or h < 20:
+                continue
+            fill = cv2.countNonZero(mask[y:y + h, x:x + w]) / max(1, area)
+            if fill < 0.28:
+                continue
+            pad_x = int(w * 0.08)
+            pad_y = int(h * 0.18)
+            box = [max(0, x - pad_x), max(0, y - pad_y), min(width - 1, x + w + pad_x), min(height - 1, y + h + pad_y)]
+            confidence = round(min(0.96, 0.72 + fill * 0.22), 3)
+            candidates.append({"label": "??", "confidence": confidence, "box": box})
+        candidates.sort(key=lambda item: (item["box"][2] - item["box"][0]) * (item["box"][3] - item["box"][1]), reverse=True)
+        return candidates[:4]
 
     def _plate_search_regions(self, image, vehicles):
         height, width = image.shape[:2]

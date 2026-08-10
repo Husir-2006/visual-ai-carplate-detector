@@ -1,7 +1,50 @@
-﻿[
-  {"time":"2026-07-19 08:42","gate":"南门","plate":"BB8986","owner":"行政部 · 张明","direction":"入场","result":"自动放行"},
-  {"time":"2026-07-19 09:33","gate":"北门","plate":"ATE112","owner":"外协单位 · 施工车辆","direction":"入场","result":"人工核验"},
-  {"time":"2026-07-19 10:18","gate":"西门","plate":"589222","owner":"后勤保障部 · 访客车","direction":"入场","result":"访客登记"},
-  {"time":"2026-07-19 14:26","gate":"南门","plate":"EVSROCK","owner":"测试车队 · 演示车辆","direction":"出场","result":"自动放行"},
-  {"time":"2026-07-18 18:07","gate":"地库入口","plate":"XCJ-S77","owner":"研发中心 · 林珂","direction":"出场","result":"自动放行"}
+[
+  {
+    "time": "2026-08-10 18:40",
+    "gate": "实拍测试",
+    "plate": "湘DGQ550",
+    "owner": "测试车辆 · 实拍样例",
+    "direction": "入场",
+    "result": "人工校正后登记"
+  },
+  {
+    "time": "2026-07-19 08:42",
+    "gate": "南门",
+    "plate": "BB8986",
+    "owner": "行政部 · 张明",
+    "direction": "入场",
+    "result": "自动放行"
+  },
+  {
+    "time": "2026-07-19 09:33",
+    "gate": "北门",
+    "plate": "ATE112",
+    "owner": "外协单位 · 施工车辆",
+    "direction": "入场",
+    "result": "人工核验"
+  },
+  {
+    "time": "2026-07-19 10:18",
+    "gate": "西门",
+    "plate": "589222",
+    "owner": "后勤保障部 · 访客车",
+    "direction": "入场",
+    "result": "访客登记"
+  },
+  {
+    "time": "2026-07-19 14:26",
+    "gate": "南门",
+    "plate": "EVSROCK",
+    "owner": "测试车队 · 演示车辆",
+    "direction": "出场",
+    "result": "自动放行"
+  },
+  {
+    "time": "2026-07-18 18:07",
+    "gate": "地库入口",
+    "plate": "XCJ-S77",
+    "owner": "研发中心 · 林珂",
+    "direction": "出场",
+    "result": "自动放行"
+  }
 ]

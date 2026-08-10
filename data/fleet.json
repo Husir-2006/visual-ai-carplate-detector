@@ -1,9 +1,98 @@
-﻿[
-  {"plate":"BB8986","type":"小型乘用车","owner":"行政部 · 张明","brand":"Mercedes-Benz E-Class","permit":"长期通行","status":"正常","lastSeen":"今天 08:42 · 南门","phone":"138****7821","color":"深蓝色","purpose":"员工车辆"},
-  {"plate":"589222","type":"SUV/MPV 类车辆","owner":"后勤保障部 · 访客车","brand":"MPV / SUV","permit":"临时访客","status":"需核验","lastSeen":"今天 10:18 · 西门","phone":"访客登记台","color":"黑色","purpose":"临时配送/访客"},
-  {"plate":"XCJ-S77","type":"轿车/小型乘用车","owner":"研发中心 · 林珂","brand":"Compact Sedan","permit":"长期通行","status":"正常","lastSeen":"昨天 18:07 · 地库入口","phone":"136****1290","color":"银色","purpose":"员工车辆"},
-  {"plate":"EVSROCK","type":"小型乘用车","owner":"测试车队 · 演示车辆","brand":"EV Demo Car","permit":"演示权限","status":"正常","lastSeen":"今天 14:26 · 南门","phone":"系统演示","color":"白色","purpose":"算法演示"},
-  {"plate":"ATE112","type":"小型乘用车","owner":"外协单位 · 施工车辆","brand":"Service Sedan","permit":"限时通行","status":"需核验","lastSeen":"今天 09:33 · 北门","phone":"门岗登记","color":"蓝色","purpose":"外协施工"},
-  {"plate":"CAMPUS01","type":"巡逻车","owner":"安保部 · 巡逻组","brand":"Security Patrol","permit":"内部车辆","status":"正常","lastSeen":"今天 15:11 · 东门","phone":"安保值班室","color":"白色","purpose":"园区巡逻"},
-  {"plate":"VISITOR8","type":"访客车辆","owner":"访客中心","brand":"Unknown","permit":"待审批","status":"异常","lastSeen":"无记录","phone":"未登记","color":"未知","purpose":"未登记车辆"}
+[
+  {
+    "plate": "湘DGQ550",
+    "type": "小型乘用车",
+    "owner": "测试车辆 · 实拍样例",
+    "brand": "Volkswagen Lavida / Sedan",
+    "permit": "临时测试",
+    "status": "需核验",
+    "lastSeen": "实拍测试 · 手动校正",
+    "phone": "现场登记",
+    "color": "白色",
+    "purpose": "真实街景测试样例"
+  },
+  {
+    "plate": "BB8986",
+    "type": "小型乘用车",
+    "owner": "行政部 · 张明",
+    "brand": "Mercedes-Benz E-Class",
+    "permit": "长期通行",
+    "status": "正常",
+    "lastSeen": "今天 08:42 · 南门",
+    "phone": "138****7821",
+    "color": "深蓝色",
+    "purpose": "员工车辆"
+  },
+  {
+    "plate": "589222",
+    "type": "SUV/MPV 类车辆",
+    "owner": "后勤保障部 · 访客车",
+    "brand": "MPV / SUV",
+    "permit": "临时访客",
+    "status": "需核验",
+    "lastSeen": "今天 10:18 · 西门",
+    "phone": "访客登记台",
+    "color": "黑色",
+    "purpose": "临时配送/访客"
+  },
+  {
+    "plate": "XCJ-S77",
+    "type": "轿车/小型乘用车",
+    "owner": "研发中心 · 林珂",
+    "brand": "Compact Sedan",
+    "permit": "长期通行",
+    "status": "正常",
+    "lastSeen": "昨天 18:07 · 地库入口",
+    "phone": "136****1290",
+    "color": "银色",
+    "purpose": "员工车辆"
+  },
+  {
+    "plate": "EVSROCK",
+    "type": "小型乘用车",
+    "owner": "测试车队 · 演示车辆",
+    "brand": "EV Demo Car",
+    "permit": "演示权限",
+    "status": "正常",
+    "lastSeen": "今天 14:26 · 南门",
+    "phone": "系统演示",
+    "color": "白色",
+    "purpose": "算法演示"
+  },
+  {
+    "plate": "ATE112",
+    "type": "小型乘用车",
+    "owner": "外协单位 · 施工车辆",
+    "brand": "Service Sedan",
+    "permit": "限时通行",
+    "status": "需核验",
+    "lastSeen": "今天 09:33 · 北门",
+    "phone": "门岗登记",
+    "color": "蓝色",
+    "purpose": "外协施工"
+  },
+  {
+    "plate": "CAMPUS01",
+    "type": "巡逻车",
+    "owner": "安保部 · 巡逻组",
+    "brand": "Security Patrol",
+    "permit": "内部车辆",
+    "status": "正常",
+    "lastSeen": "今天 15:11 · 东门",
+    "phone": "安保值班室",
+    "color": "白色",
+    "purpose": "园区巡逻"
+  },
+  {
+    "plate": "VISITOR8",
+    "type": "访客车辆",
+    "owner": "访客中心",
+    "brand": "Unknown",
+    "permit": "待审批",
+    "status": "异常",
+    "lastSeen": "无记录",
+    "phone": "未登记",
+    "color": "未知",
+    "purpose": "未登记车辆"
+  }
 ]
