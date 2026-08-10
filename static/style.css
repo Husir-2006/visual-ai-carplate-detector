@@ -360,3 +360,60 @@ tbody tr:hover { background: #f8fbff; }
   .image-grid, .evidence-columns { grid-template-columns: 1fr; }
   figure img { height: 280px; }
 }
+
+.view { display: none; }
+.view.active { display: grid; gap: 16px; }
+.full-panel { min-height: 420px; }
+.list-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+.record-cards {
+  display: grid;
+  gap: 12px;
+}
+.record-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  background: #fbfcfe;
+}
+.record-card strong {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 22px;
+  letter-spacing: 0;
+}
+.record-card p {
+  margin: 10px 0 0;
+  color: var(--muted);
+}
+.settings-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+.settings-list div {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  background: #f8fafc;
+}
+.settings-list dt {
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+.settings-list dd {
+  margin: 0;
+  font-weight: 800;
+  line-height: 1.5;
+}
+
+@media (max-width: 760px) {
+  .list-grid, .settings-list { grid-template-columns: 1fr; }
+}

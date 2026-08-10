@@ -11,6 +11,11 @@ except Exception:
     torch = None
     TinyYolo = None
 
+try:
+    from ultralytics import YOLO
+except Exception:
+    YOLO = None
+
 
 COCO_CLASSES = {2: "car", 3: "motorcycle", 5: "bus", 7: "truck"}
 
@@ -18,17 +23,30 @@ COCO_CLASSES = {2: "car", 3: "motorcycle", 5: "bus", 7: "truck"}
 class CampusVehicleDetector:
     def __init__(self, model_dir):
         self.model_dir = Path(model_dir)
+        self.ultralytics_model = self._load_ultralytics_model()
         self.custom_model = self._load_custom_model()
         self.yolo = self._load_onnx_model()
         self.plate_cascade = self._load_plate_cascade()
         self.ocr = PlateOCR()
+
+    def _load_ultralytics_model(self):
+        if YOLO is None:
+            return None
+        for name in ("yolov8_plate.pt", "best.pt"):
+            model_path = self.model_dir / name
+            if model_path.exists():
+                try:
+                    return YOLO(str(model_path))
+                except Exception:
+                    continue
+        return None
 
     def _load_custom_model(self):
         model_path = self.model_dir / "tiny_plate_detector.pt"
         if torch is None or TinyYolo is None or not model_path.exists():
             return None
         checkpoint = torch.load(str(model_path), map_location="cpu")
-        classes = checkpoint.get("classes", ["plate", "toyota"])
+        classes = checkpoint.get("classes", ["plate", "vehicle"])
         model = TinyYolo(checkpoint.get("grid_size", 10), len(classes))
         model.load_state_dict(checkpoint["model"])
         model.eval()
@@ -53,7 +71,12 @@ class CampusVehicleDetector:
         return cascade if not cascade.empty() else None
 
     def detect(self, image, source_name=""):
-        if self.yolo is not None:
+        ultralytics_detections = self._detect_ultralytics(image)
+        if ultralytics_detections:
+            vehicles = [item for item in ultralytics_detections if item["type"] == "vehicle"]
+            plates = [item for item in ultralytics_detections if item["type"] == "plate"]
+            mode = "YOLOv8/Ultralytics"
+        elif self.yolo is not None:
             vehicles = self._detect_vehicles_yolo(image)
             mode = "YOLOv5 ONNX"
         else:
@@ -68,8 +91,9 @@ class CampusVehicleDetector:
             if detection["type"] == "vehicle" and all(self._iou(detection["box"], item["box"]) < 0.35 for item in vehicles):
                 vehicles.append({k: detection[k] for k in ("label", "confidence", "box")})
 
-        plates = [{k: d[k] for k in ("label", "confidence", "box")} for d in model_detections if d["type"] == "plate"]
-        plates.extend(self._detect_plates(image, vehicles))
+        if not ultralytics_detections:
+            plates = [{k: d[k] for k in ("label", "confidence", "box")} for d in model_detections if d["type"] == "plate"]
+            plates.extend(self._detect_plates(image, vehicles))
         plates = self._dedupe(plates, 0.45)[:8]
         if not plates and self.ocr.extract_from_name(source_name):
             plates.append(self._fallback_plate_from_vehicle(image, vehicles))
@@ -129,6 +153,35 @@ class CampusVehicleDetector:
         px2 = min(width - 1, px1 + plate_w)
         py2 = min(height - 1, py1 + plate_h)
         return {"label": "车牌", "confidence": 0.55, "box": [px1, py1, px2, py2]}
+
+
+    def _detect_ultralytics(self, image):
+        if self.ultralytics_model is None:
+            return []
+        try:
+            results = self.ultralytics_model.predict(image, imgsz=640, conf=0.25, verbose=False)
+        except Exception:
+            return []
+        detections = []
+        for result in results:
+            names = getattr(result, "names", {}) or {}
+            boxes = getattr(result, "boxes", None)
+            if boxes is None:
+                continue
+            for box in boxes:
+                xyxy = box.xyxy[0].detach().cpu().numpy().astype(int).tolist()
+                confidence = float(box.conf[0].detach().cpu()) if box.conf is not None else 0.0
+                cls_id = int(box.cls[0].detach().cpu()) if box.cls is not None else 0
+                raw_label = str(names.get(cls_id, cls_id)).lower()
+                is_plate = any(key in raw_label for key in ("plate", "license", "licence", "number")) or cls_id == 0
+                label = "车牌" if is_plate else self._label_cn(raw_label)
+                detections.append({
+                    "label": label,
+                    "type": "plate" if is_plate else "vehicle",
+                    "confidence": round(confidence, 3),
+                    "box": self._clip_xyxy(xyxy, image.shape[1], image.shape[0]),
+                })
+        return self._dedupe(detections, 0.45)[:12]
 
     def _detect_custom(self, image):
         if self.custom_model is None:
@@ -311,6 +364,14 @@ class CampusVehicleDetector:
         cv2.rectangle(image, (x1, y_label), (x1 + tw + 14, y_label + th + 12), color, -1)
         cv2.putText(image, label, (x1 + 7, y_label + th + 3), cv2.FONT_HERSHEY_SIMPLEX, 0.68, (255, 255, 255), 2, cv2.LINE_AA)
 
+    def _clip_xyxy(self, box, width, height):
+        x1, y1, x2, y2 = box
+        x1 = max(0, min(width - 1, int(x1)))
+        y1 = max(0, min(height - 1, int(y1)))
+        x2 = max(x1 + 1, min(width - 1, int(x2)))
+        y2 = max(y1 + 1, min(height - 1, int(y2)))
+        return [x1, y1, x2, y2]
+
     def _clip_xywh(self, box, width, height):
         x, y, w, h = box
         x = max(0, min(width - 1, x))
@@ -361,3 +422,5 @@ class CampusVehicleDetector:
         area_b = max(0, bx2 - bx1) * max(0, by2 - by1)
         union = area_a + area_b - inter
         return inter / union if union else 0
+
+

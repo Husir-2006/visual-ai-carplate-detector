@@ -1,101 +1,9 @@
-﻿const fleetRecords = [
-  {
-    plate: "BB8986",
-    type: "小型乘用车",
-    owner: "行政部 · 张明",
-    brand: "Mercedes-Benz E-Class",
-    permit: "长期通行",
-    status: "正常",
-    lastSeen: "今天 08:42 · 南门",
-    phone: "138****7821",
-    color: "深蓝色",
-    purpose: "员工车辆",
-  },
-  {
-    plate: "589222",
-    type: "SUV/MPV 类车辆",
-    owner: "后勤保障部 · 访客车",
-    brand: "MPV / SUV",
-    permit: "临时访客",
-    status: "需核验",
-    lastSeen: "今天 10:18 · 西门",
-    phone: "访客登记台",
-    color: "黑色",
-    purpose: "临时配送/访客",
-  },
-  {
-    plate: "XCJ-S77",
-    type: "轿车/小型乘用车",
-    owner: "研发中心 · 林珂",
-    brand: "Compact Sedan",
-    permit: "长期通行",
-    status: "正常",
-    lastSeen: "昨天 18:07 · 地库入口",
-    phone: "136****1290",
-    color: "银色",
-    purpose: "员工车辆",
-  },
-  {
-    plate: "EVSROCK",
-    type: "小型乘用车",
-    owner: "测试车队 · 演示车辆",
-    brand: "EV Demo Car",
-    permit: "演示权限",
-    status: "正常",
-    lastSeen: "今天 14:26 · 南门",
-    phone: "系统演示",
-    color: "白色",
-    purpose: "算法演示",
-  },
-  {
-    plate: "ATE112",
-    type: "小型乘用车",
-    owner: "外协单位 · 施工车辆",
-    brand: "Service Sedan",
-    permit: "限时通行",
-    status: "需核验",
-    lastSeen: "今天 09:33 · 北门",
-    phone: "门岗登记",
-    color: "蓝色",
-    purpose: "外协施工",
-  },
-  {
-    plate: "A112",
-    type: "小型乘用车",
-    owner: "外协单位 · 施工车辆",
-    brand: "Service Sedan",
-    permit: "限时通行",
-    status: "需核验",
-    lastSeen: "今天 09:33 · 北门",
-    phone: "门岗登记",
-    color: "蓝色",
-    purpose: "外协施工",
-  },
-  {
-    plate: "CAMPUS01",
-    type: "巡逻车",
-    owner: "安保部 · 巡逻组",
-    brand: "Security Patrol",
-    permit: "内部车辆",
-    status: "正常",
-    lastSeen: "今天 15:11 · 东门",
-    phone: "安保值班室",
-    color: "白色",
-    purpose: "园区巡逻",
-  },
-  {
-    plate: "VISITOR8",
-    type: "访客车辆",
-    owner: "访客中心",
-    brand: "Unknown",
-    permit: "待审批",
-    status: "异常",
-    lastSeen: "无记录",
-    phone: "未登记",
-    color: "未知",
-    purpose: "未登记车辆",
-  },
-];
+﻿let fleetRecords = [];
+let passRecords = [];
+let accessLists = { white: [], black: [] };
+let systemSettings = {};
+let selectedFile = null;
+let lastVehicleImages = [];
 
 const imageInput = document.querySelector("#imageInput");
 const detectBtn = document.querySelector("#detectBtn");
@@ -114,33 +22,117 @@ const vehicleProfile = document.querySelector("#vehicleProfile");
 const matchHint = document.querySelector("#matchHint");
 const dropzone = document.querySelector("#dropzone");
 const fleetTable = document.querySelector("#fleetTable");
+const fleetViewTable = document.querySelector("#fleetViewTable");
+const recordTable = document.querySelector("#recordTable");
 const tableSearch = document.querySelector("#tableSearch");
+const fleetViewSearch = document.querySelector("#fleetViewSearch");
+const recordSearch = document.querySelector("#recordSearch");
 const manualPlate = document.querySelector("#manualPlate");
 const manualSearchBtn = document.querySelector("#manualSearchBtn");
 const registeredCount = document.querySelector("#registeredCount");
+const todayPassCount = document.querySelector("#todayPassCount");
+const pageTitle = document.querySelector("#pageTitle");
+const navButtons = document.querySelectorAll(".side-nav button");
 
-let selectedFile = null;
-let lastVehicleImages = [];
+const viewTitles = {
+  workbench: "企业车牌识别与车辆查询系统",
+  fleet: "车辆档案",
+  records: "通行记录",
+  lists: "黑白名单",
+  settings: "系统设置",
+};
 
-renderFleetTable(fleetRecords);
-registeredCount.textContent = fleetRecords.length;
+init();
 
-imageInput.addEventListener("change", () => setSelectedFile(imageInput.files[0]));
+async function init() {
+  bindEvents();
+  await loadSystemData();
+  renderAllData();
+  clearResult();
+}
 
-dropzone.addEventListener("dragover", (event) => {
-  event.preventDefault();
-  dropzone.classList.add("dragging");
-});
+function bindEvents() {
+  navButtons.forEach((button) => {
+    button.addEventListener("click", () => switchView(button.dataset.view));
+  });
 
-dropzone.addEventListener("dragleave", () => dropzone.classList.remove("dragging"));
+  imageInput.addEventListener("change", () => setSelectedFile(imageInput.files[0]));
 
-dropzone.addEventListener("drop", (event) => {
-  event.preventDefault();
-  dropzone.classList.remove("dragging");
-  setSelectedFile(event.dataTransfer.files[0]);
-});
+  dropzone.addEventListener("dragover", (event) => {
+    event.preventDefault();
+    dropzone.classList.add("dragging");
+  });
 
-detectBtn.addEventListener("click", async () => {
+  dropzone.addEventListener("dragleave", () => dropzone.classList.remove("dragging"));
+
+  dropzone.addEventListener("drop", (event) => {
+    event.preventDefault();
+    dropzone.classList.remove("dragging");
+    setSelectedFile(event.dataTransfer.files[0]);
+  });
+
+  detectBtn.addEventListener("click", detectImage);
+  resetBtn.addEventListener("click", resetWorkspace);
+
+  tableSearch.addEventListener("input", () => renderFleetTable(filterFleet(tableSearch.value), fleetTable));
+  fleetViewSearch.addEventListener("input", () => renderFleetTable(filterFleet(fleetViewSearch.value), fleetViewTable, true));
+  recordSearch.addEventListener("input", () => renderPassRecords(filterRecords(recordSearch.value)));
+
+  manualSearchBtn.addEventListener("click", () => {
+    const plate = normalize(manualPlate.value);
+    plateNumber.textContent = plate || "未识别";
+    lookupVehicle(plate, true);
+  });
+
+  manualPlate.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") manualSearchBtn.click();
+  });
+}
+
+async function loadSystemData() {
+  const [fleet, records, lists, settings] = await Promise.all([
+    fetchJson("/api/fleet", []),
+    fetchJson("/api/pass-records", []),
+    fetchJson("/api/access-lists", { white: [], black: [] }),
+    fetchJson("/api/settings", {}),
+  ]);
+  fleetRecords = fleet;
+  passRecords = records;
+  accessLists = lists;
+  systemSettings = settings;
+}
+
+async function fetchJson(url, fallback) {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(url);
+    return await response.json();
+  } catch (error) {
+    console.warn("数据加载失败", url, error);
+    return fallback;
+  }
+}
+
+function renderAllData() {
+  registeredCount.textContent = fleetRecords.length;
+  todayPassCount.textContent = passRecords.filter((record) => record.time?.includes("2026-07-19")).length || passRecords.length;
+  renderFleetTable(fleetRecords, fleetTable);
+  renderFleetTable(fleetRecords, fleetViewTable, true);
+  renderPassRecords(passRecords);
+  renderAccessLists();
+  renderSettings();
+}
+
+function switchView(view) {
+  navButtons.forEach((button) => button.classList.toggle("active", button.dataset.view === view));
+  document.querySelectorAll("[data-view-panel]").forEach((panel) => {
+    panel.classList.toggle("active", panel.dataset.viewPanel === view);
+  });
+  pageTitle.textContent = viewTitles[view] || viewTitles.workbench;
+  resetBtn.style.display = view === "workbench" ? "inline-flex" : "none";
+}
+
+async function detectImage() {
   if (!selectedFile) {
     mode.textContent = "请先上传图片";
     return;
@@ -162,9 +154,9 @@ detectBtn.addEventListener("click", async () => {
   } finally {
     detectBtn.disabled = false;
   }
-});
+}
 
-resetBtn.addEventListener("click", () => {
+function resetWorkspace() {
   selectedFile = null;
   lastVehicleImages = [];
   imageInput.value = "";
@@ -174,25 +166,7 @@ resetBtn.addEventListener("click", () => {
   resultPreview.classList.remove("visible");
   mode.textContent = "等待识别";
   clearResult();
-});
-
-tableSearch.addEventListener("input", () => {
-  const keyword = normalize(tableSearch.value);
-  const filtered = fleetRecords.filter((record) =>
-    [record.plate, record.type, record.owner, record.status, record.permit].some((value) => normalize(value).includes(keyword)),
-  );
-  renderFleetTable(filtered);
-});
-
-manualSearchBtn.addEventListener("click", () => {
-  const plate = normalize(manualPlate.value);
-  plateNumber.textContent = plate || "未识别";
-  lookupVehicle(plate, true);
-});
-
-manualPlate.addEventListener("keydown", (event) => {
-  if (event.key === "Enter") manualSearchBtn.click();
-});
+}
 
 function setSelectedFile(file) {
   if (!file) return;
@@ -243,17 +217,14 @@ function lookupVehicle(plate, manual = false, detectedType = "") {
 }
 
 function renderVehicleProfile(record) {
-  const statusClass = record.status === "正常" ? "ok" : record.status === "异常" ? "danger" : "warn";
+  const statusClass = statusToClass(record.status);
   const vehicleImage = lastVehicleImages[0]
     ? `<img src="${lastVehicleImages[0]}" alt="匹配车辆图片" />`
     : `<div class="profile-image-placeholder">无车辆图</div>`;
   return `
     <div class="profile-image">${vehicleImage}</div>
     <div class="profile-title">
-      <div>
-        <span>匹配车辆</span>
-        <strong>${record.plate}</strong>
-      </div>
+      <div><span>匹配车辆</span><strong>${record.plate}</strong></div>
       <em class="badge ${statusClass}">${record.status}</em>
     </div>
     <dl class="profile-list">
@@ -275,13 +246,7 @@ function renderUnknownVehicle(plate, detectedType) {
     : `<div class="profile-image-placeholder">无车辆图</div>`;
   return `
     <div class="profile-image">${vehicleImage}</div>
-    <div class="profile-title">
-      <div>
-        <span>未登记车辆</span>
-        <strong>${plate}</strong>
-      </div>
-      <em class="badge danger">未授权</em>
-    </div>
+    <div class="profile-title"><div><span>未登记车辆</span><strong>${plate}</strong></div><em class="badge danger">未授权</em></div>
     <dl class="profile-list">
       <div><dt>车辆类型</dt><dd>${detectedType || "未知"}</dd></div>
       <div><dt>处理建议</dt><dd>请人工核验并登记访客信息</dd></div>
@@ -294,56 +259,75 @@ function renderDetectionList(data) {
   const items = [...data.vehicles, ...data.plates];
   detectionList.classList.toggle("empty", items.length === 0);
   detectionList.innerHTML = items.length
-    ? items
-        .map((item, index) => {
-          const text = item.text && item.text !== "未识别" ? `<b>车牌号：${item.text}</b>` : "";
-          const ocr = item.ocrMethod ? `<small>OCR 方法：${item.ocrMethod}</small>` : "";
-          return `
-            <article>
-              <strong>${index + 1}. ${item.label}</strong>
-              ${text}
-              <span>置信度 ${(item.confidence * 100).toFixed(1)}%</span>
-              <small>坐标 [${item.box.join(", ")}]</small>
-              ${ocr}
-            </article>
-          `;
-        })
-        .join("")
+    ? items.map((item, index) => {
+        const text = item.text && item.text !== "未识别" ? `<b>车牌号：${item.text}</b>` : "";
+        const ocr = item.ocrMethod ? `<small>OCR 方法：${item.ocrMethod}</small>` : "";
+        return `<article><strong>${index + 1}. ${item.label}</strong>${text}<span>置信度 ${(item.confidence * 100).toFixed(1)}%</span><small>坐标 [${item.box.join(", ")}]</small>${ocr}</article>`;
+      }).join("")
     : "暂无检测结果";
 }
 
-function renderFleetTable(records) {
-  fleetTable.innerHTML = records
-    .map((record) => {
-      const statusClass = record.status === "正常" ? "ok" : record.status === "异常" ? "danger" : "warn";
-      return `
-        <tr data-plate="${record.plate}">
-          <td><strong>${record.plate}</strong></td>
-          <td>${record.type}</td>
-          <td>${record.owner}</td>
-          <td>${record.permit}</td>
-          <td><span class="badge ${statusClass}">${record.status}</span></td>
-          <td>${record.lastSeen}</td>
-        </tr>
-      `;
-    })
-    .join("");
+function renderFleetTable(records, target, full = false) {
+  target.innerHTML = records.map((record) => {
+    const statusClass = statusToClass(record.status);
+    const cells = full
+      ? `<td>${record.brand}</td><td>${record.owner}</td><td>${record.permit}</td><td><span class="badge ${statusClass}">${record.status}</span></td><td>${record.lastSeen}</td>`
+      : `<td>${record.owner}</td><td>${record.permit}</td><td><span class="badge ${statusClass}">${record.status}</span></td><td>${record.lastSeen}</td>`;
+    return `<tr data-plate="${record.plate}"><td><strong>${record.plate}</strong></td><td>${record.type}</td>${cells}</tr>`;
+  }).join("");
 
-  fleetTable.querySelectorAll("tr").forEach((row) => {
+  target.querySelectorAll("tr").forEach((row) => {
     row.addEventListener("click", () => {
-      const plate = row.dataset.plate;
-      manualPlate.value = plate;
-      plateNumber.textContent = plate;
-      lookupVehicle(plate, true);
+      switchView("workbench");
+      manualPlate.value = row.dataset.plate;
+      plateNumber.textContent = row.dataset.plate;
+      lookupVehicle(row.dataset.plate, true);
     });
   });
 }
 
+function renderPassRecords(records) {
+  recordTable.innerHTML = records.map((record) => `
+    <tr>
+      <td>${record.time}</td><td>${record.gate}</td><td><strong>${record.plate}</strong></td>
+      <td>${record.owner}</td><td>${record.direction}</td><td>${record.result}</td>
+    </tr>
+  `).join("");
+}
+
+function renderAccessLists() {
+  document.querySelector("#whiteList").innerHTML = renderCards(accessLists.white || [], "ok");
+  document.querySelector("#blackList").innerHTML = renderCards(accessLists.black || [], "danger");
+}
+
+function renderCards(records, badgeClass) {
+  return records.length ? records.map((item) => `
+    <article class="record-card">
+      <strong>${item.plate}</strong>
+      <span class="badge ${badgeClass}">${item.expire || item.created}</span>
+      <p>${item.reason}</p>
+    </article>
+  `).join("") : `<div class="profile-empty">暂无数据</div>`;
+}
+
+function renderSettings() {
+  const labels = {
+    gate: "门岗编号",
+    confidenceThreshold: "置信度阈值",
+    ocrEngine: "OCR 引擎",
+    modelPriority: "模型优先级",
+    saveEvidence: "保存识别证据",
+    manualReview: "异常人工复核",
+  };
+  document.querySelector("#settingsList").innerHTML = Object.entries(labels).map(([key, label]) => {
+    const value = systemSettings[key];
+    return `<div><dt>${label}</dt><dd>${formatValue(value)}</dd></div>`;
+  }).join("");
+}
+
 function renderGallery(container, images, alt, emptyText) {
   container.classList.toggle("empty", images.length === 0);
-  container.innerHTML = images.length
-    ? images.map((src) => `<img src="${src}" alt="${alt}" />`).join("")
-    : emptyText;
+  container.innerHTML = images.length ? images.map((src) => `<img src="${src}" alt="${alt}" />`).join("") : emptyText;
 }
 
 function clearResult() {
@@ -361,6 +345,25 @@ function clearResult() {
   vehicleGallery.textContent = "暂无车辆图片";
 }
 
+function filterFleet(keyword) {
+  const value = normalize(keyword);
+  return fleetRecords.filter((record) => [record.plate, record.type, record.owner, record.status, record.permit, record.brand].some((field) => normalize(field).includes(value)));
+}
+
+function filterRecords(keyword) {
+  const value = normalize(keyword);
+  return passRecords.filter((record) => [record.time, record.gate, record.plate, record.owner, record.result].some((field) => normalize(field).includes(value)));
+}
+
 function normalize(value) {
   return String(value || "").trim().toUpperCase().replace(/\s+/g, "");
+}
+
+function statusToClass(status) {
+  return status === "正常" ? "ok" : status === "异常" || status === "未授权" ? "danger" : "warn";
+}
+
+function formatValue(value) {
+  if (typeof value === "boolean") return value ? "开启" : "关闭";
+  return value ?? "未设置";
 }

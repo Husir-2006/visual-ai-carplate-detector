@@ -1,5 +1,6 @@
 ﻿from pathlib import Path
 from uuid import uuid4
+import json
 import os
 
 import cv2
@@ -13,11 +14,20 @@ from detector import CampusVehicleDetector
 BASE_DIR = Path(__file__).resolve().parent
 UPLOAD_DIR = BASE_DIR / "uploads"
 OUTPUT_DIR = BASE_DIR / "outputs"
+DATA_DIR = BASE_DIR / "data"
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
 
 app = Flask(__name__)
 detector = CampusVehicleDetector(BASE_DIR / "models")
 
+def read_json(name, fallback):
+    path = DATA_DIR / name
+    if not path.exists():
+        return fallback
+    try:
+        return json.loads(path.read_text(encoding="utf-8-sig"))
+    except Exception:
+        return fallback
 
 def allowed_file(filename):
     return Path(filename).suffix.lower() in ALLOWED_EXTENSIONS
@@ -28,6 +38,26 @@ def index():
     return render_template("index.html")
 
 
+
+@app.route("/api/fleet")
+def fleet():
+    return jsonify(read_json("fleet.json", []))
+
+
+@app.route("/api/pass-records")
+def pass_records():
+    return jsonify(read_json("pass_records.json", []))
+
+
+@app.route("/api/access-lists")
+def access_lists():
+    return jsonify(read_json("access_lists.json", {"white": [], "black": []}))
+
+
+@app.route("/api/settings")
+def settings():
+    return jsonify(read_json("settings.json", {}))
+
 @app.route("/detect", methods=["POST"])
 def detect():
     image_file = request.files.get("image")
@@ -36,6 +66,9 @@ def detect():
 
     if not allowed_file(image_file.filename):
         return jsonify({"error": "仅支持 JPG、PNG、BMP、WEBP 图片"}), 400
+
+    UPLOAD_DIR.mkdir(exist_ok=True)
+    OUTPUT_DIR.mkdir(exist_ok=True)
 
     original_name = secure_filename(image_file.filename)
     suffix = Path(original_name).suffix.lower()
@@ -95,5 +128,10 @@ def outputs(filename):
 if __name__ == "__main__":
     UPLOAD_DIR.mkdir(exist_ok=True)
     OUTPUT_DIR.mkdir(exist_ok=True)
+    DATA_DIR.mkdir(exist_ok=True)
     port = int(os.environ.get("PORT", "5000"))
     app.run(host="127.0.0.1", port=port, debug=False)
+
+
+
+

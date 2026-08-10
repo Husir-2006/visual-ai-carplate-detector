@@ -17,11 +17,11 @@
           </div>
         </div>
         <nav class="side-nav" aria-label="主导航">
-          <button class="active" type="button">识别工作台</button>
-          <button type="button">车辆档案</button>
-          <button type="button">通行记录</button>
-          <button type="button">黑白名单</button>
-          <button type="button">系统设置</button>
+          <button class="active" type="button" data-view="workbench">识别工作台</button>
+          <button type="button" data-view="fleet">车辆档案</button>
+          <button type="button" data-view="records">通行记录</button>
+          <button type="button" data-view="lists">黑白名单</button>
+          <button type="button" data-view="settings">系统设置</button>
         </nav>
         <div class="operator-box">
           <span>值班岗亭</span>
@@ -34,7 +34,7 @@
         <header class="topbar">
           <div>
             <p>Vehicle Recognition Console</p>
-            <h1>企业车牌识别与车辆查询系统</h1>
+            <h1 id="pageTitle">企业车牌识别与车辆查询系统</h1>
           </div>
           <div class="top-actions">
             <span class="status-pill" id="mode">等待识别</span>
@@ -43,132 +43,111 @@
         </header>
 
         <section class="summary-strip" aria-label="系统概览">
-          <div>
-            <span id="registeredCount">8</span>
-            <p>登记车辆</p>
-          </div>
-          <div>
-            <span id="todayPassCount">126</span>
-            <p>今日通行</p>
-          </div>
-          <div>
-            <span id="vehicleCount">0</span>
-            <p>检测车辆</p>
-          </div>
-          <div>
-            <span id="plateCount">0</span>
-            <p>识别车牌</p>
-          </div>
-          <div>
-            <span id="avgConfidence">0</span>
-            <p>平均置信度</p>
-          </div>
+          <div><span id="registeredCount">0</span><p>登记车辆</p></div>
+          <div><span id="todayPassCount">126</span><p>今日通行</p></div>
+          <div><span id="vehicleCount">0</span><p>检测车辆</p></div>
+          <div><span id="plateCount">0</span><p>识别车牌</p></div>
+          <div><span id="avgConfidence">0</span><p>平均置信度</p></div>
         </section>
 
-        <section class="workspace-grid">
-          <section class="recognition-panel">
-            <div class="section-head">
-              <div>
-                <h2>AI 识别</h2>
-                <p>上传车辆照片，系统识别车牌并查询车辆档案</p>
+        <section class="view active" data-view-panel="workbench">
+          <section class="workspace-grid">
+            <section class="recognition-panel">
+              <div class="section-head">
+                <div>
+                  <h2>AI 识别</h2>
+                  <p>上传车辆照片，系统识别车牌并查询车辆档案</p>
+                </div>
+                <button id="detectBtn" class="primary-btn" type="button">开始识别</button>
               </div>
-              <button id="detectBtn" class="primary-btn" type="button">开始识别</button>
-            </div>
 
-            <label class="dropzone" id="dropzone" for="imageInput">
-              <input id="imageInput" type="file" accept="image/*" />
-              <span class="upload-icon">+</span>
-              <strong>上传车辆图片</strong>
-              <small>支持 JPG、PNG、BMP、WEBP</small>
-            </label>
+              <label class="dropzone" id="dropzone" for="imageInput">
+                <input id="imageInput" type="file" accept="image/*" />
+                <span class="upload-icon">+</span>
+                <strong>上传车辆图片</strong>
+                <small>支持 JPG、PNG、BMP、WEBP</small>
+              </label>
 
-            <div class="image-grid">
-              <figure>
-                <figcaption>原始车辆图</figcaption>
-                <img id="originalPreview" alt="原始车辆图" />
-              </figure>
-              <figure>
-                <figcaption>AI 识别结果</figcaption>
-                <img id="resultPreview" alt="AI 识别结果" />
-              </figure>
-            </div>
+              <div class="image-grid">
+                <figure>
+                  <figcaption>原始车辆图</figcaption>
+                  <img id="originalPreview" alt="原始车辆图" />
+                </figure>
+                <figure>
+                  <figcaption>AI 识别结果</figcaption>
+                  <img id="resultPreview" alt="AI 识别结果" />
+                </figure>
+              </div>
+            </section>
+
+            <aside class="lookup-panel">
+              <div class="section-head compact"><div><h2>车辆查询</h2><p>按车牌号自动匹配档案</p></div></div>
+              <div class="plate-readout">
+                <span>识别车牌</span>
+                <strong id="plateNumber">未识别</strong>
+                <p id="matchHint">上传图片后自动查询车辆档案</p>
+              </div>
+              <div class="vehicle-profile" id="vehicleProfile"><div class="profile-empty">暂无匹配车辆</div></div>
+              <div class="manual-search">
+                <label for="manualPlate">手动查询</label>
+                <div>
+                  <input id="manualPlate" type="text" placeholder="输入车牌号，如 BB8986" />
+                  <button id="manualSearchBtn" type="button">查询</button>
+                </div>
+              </div>
+            </aside>
           </section>
 
-          <aside class="lookup-panel">
-            <div class="section-head compact">
-              <div>
-                <h2>车辆查询</h2>
-                <p>按车牌号自动匹配档案</p>
+          <section class="lower-grid">
+            <section class="registry-panel">
+              <div class="section-head compact">
+                <div><h2>车辆档案库</h2><p>演示用企业车辆数据</p></div>
+                <input id="tableSearch" type="search" placeholder="筛选车牌、部门、车主" />
               </div>
-            </div>
-
-            <div class="plate-readout">
-              <span>识别车牌</span>
-              <strong id="plateNumber">未识别</strong>
-              <p id="matchHint">上传图片后自动查询车辆档案</p>
-            </div>
-
-            <div class="vehicle-profile" id="vehicleProfile">
-              <div class="profile-empty">暂无匹配车辆</div>
-            </div>
-
-            <div class="manual-search">
-              <label for="manualPlate">手动查询</label>
-              <div>
-                <input id="manualPlate" type="text" placeholder="输入车牌号，如 BB8986" />
-                <button id="manualSearchBtn" type="button">查询</button>
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>车牌号</th><th>车辆类型</th><th>车主/部门</th><th>权限</th><th>状态</th><th>最近通行</th></tr></thead>
+                  <tbody id="fleetTable"></tbody>
+                </table>
               </div>
-            </div>
-          </aside>
+            </section>
+
+            <section class="evidence-panel">
+              <div class="section-head compact"><div><h2>识别证据</h2><p>系统返回的车辆图、车牌裁剪和目标明细</p></div></div>
+              <div class="evidence-columns">
+                <div><h3>车辆返回图</h3><div id="vehicleGallery" class="gallery empty">暂无车辆图片</div></div>
+                <div><h3>车牌裁剪</h3><div id="plateGallery" class="gallery plate empty">暂无车牌区域</div></div>
+              </div>
+              <div class="list-section"><h3>目标明细</h3><div id="detectionList" class="detection-list empty">暂无检测结果</div></div>
+            </section>
+          </section>
         </section>
 
-        <section class="lower-grid">
-          <section class="registry-panel">
-            <div class="section-head compact">
-              <div>
-                <h2>车辆档案库</h2>
-                <p>演示用企业车辆数据</p>
-              </div>
-              <input id="tableSearch" type="search" placeholder="筛选车牌、部门、车主" />
-            </div>
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>车牌号</th>
-                    <th>车辆类型</th>
-                    <th>车主/部门</th>
-                    <th>权限</th>
-                    <th>状态</th>
-                    <th>最近通行</th>
-                  </tr>
-                </thead>
-                <tbody id="fleetTable"></tbody>
-              </table>
-            </div>
+        <section class="view" data-view-panel="fleet">
+          <section class="registry-panel full-panel">
+            <div class="section-head compact"><div><h2>车辆档案</h2><p>企业登记车辆、权限和最近通行信息</p></div><input id="fleetViewSearch" type="search" placeholder="搜索车牌、部门、状态" /></div>
+            <div class="table-wrap"><table><thead><tr><th>车牌号</th><th>车辆类型</th><th>车辆型号</th><th>车主/部门</th><th>权限</th><th>状态</th><th>最近通行</th></tr></thead><tbody id="fleetViewTable"></tbody></table></div>
           </section>
+        </section>
 
-          <section class="evidence-panel">
-            <div class="section-head compact">
-              <div>
-                <h2>识别证据</h2>
-                <p>系统返回的车辆图、车牌裁剪和目标明细</p>
-              </div>
-            </div>
-            <div class="evidence-columns">
-              <div>
-                <h3>车辆返回图</h3>
-                <div id="vehicleGallery" class="gallery empty">暂无车辆图片</div>
-              </div>
-              <div>
-                <h3>车牌裁剪</h3>
-                <div id="plateGallery" class="gallery plate empty">暂无车牌区域</div>
-              </div>
-            </div>
-            <div class="list-section">
-              <h3>目标明细</h3>
-              <div id="detectionList" class="detection-list empty">暂无检测结果</div>
-            </div>
+        <section class="view" data-view-panel="records">
+          <section class="registry-panel full-panel">
+            <div class="section-head compact"><div><h2>通行记录</h2><p>门岗通行流水，用于核查识别结果</p></div><input id="recordSearch" type="search" placeholder="搜索车牌、门岗、结果" /></div>
+            <div class="table-wrap"><table><thead><tr><th>时间</th><th>门岗</th><th>车牌号</th><th>车主/部门</th><th>方向</th><th>处理结果</th></tr></thead><tbody id="recordTable"></tbody></table></div>
+          </section>
+        </section>
+
+        <section class="view" data-view-panel="lists">
+          <section class="list-grid">
+            <section class="registry-panel"><div class="section-head compact"><div><h2>白名单</h2><p>自动放行车辆</p></div></div><div id="whiteList" class="record-cards"></div></section>
+            <section class="registry-panel"><div class="section-head compact"><div><h2>黑名单</h2><p>需要人工复核车辆</p></div></div><div id="blackList" class="record-cards"></div></section>
+          </section>
+        </section>
+
+        <section class="view" data-view-panel="settings">
+          <section class="registry-panel full-panel">
+            <div class="section-head compact"><div><h2>系统设置</h2><p>当前识别引擎、阈值和证据保存策略</p></div></div>
+            <dl class="settings-list" id="settingsList"></dl>
           </section>
         </section>
       </main>

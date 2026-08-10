@@ -1,0 +1,8 @@
+﻿{
+  "gate":"南门 01",
+  "confidenceThreshold":0.35,
+  "ocrEngine":"PaddleOCR / EasyOCR / Tesseract 自动优先",
+  "modelPriority":"YOLOv8 best.pt > YOLOv5 ONNX > Tiny-YOLO > OpenCV",
+  "saveEvidence":true,
+  "manualReview":true
+}

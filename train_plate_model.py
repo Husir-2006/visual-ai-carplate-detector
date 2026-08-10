@@ -148,7 +148,7 @@ def train(args):
                     "model": model.state_dict(),
                     "grid_size": args.grid_size,
                     "image_size": args.image_size,
-                    "classes": ["plate", "toyota"],
+                    "classes": ["plate", "vehicle"],
                     "best_valid_loss": best_loss,
                     "dataset": str(data_root),
                     "history": history,

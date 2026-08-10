@@ -1,13 +1,8 @@
-﻿# 校园车辆与车牌检测系统
+﻿# 企业车牌识别与车辆管理系统
 
-本项目是“创新应用综合实训”的视觉 AI 作业，包含两套版本：
+本项目是 P402019B 创新应用综合实训课程作业，面向校园/企业门岗车辆通行管理场景。系统支持上传车辆图片，自动检测车辆与车牌区域，识别车牌号，并根据车牌号查询车辆档案、通行记录和黑白名单信息。
 
-- 非静态版：Flask + PyTorch + OpenCV，能加载训练好的模型进行检测。
-- 静态演示版：单个 HTML 文件，双击即可打开，用于展示页面、上传图片、画检测框和导出结果图。
-
-## 一键使用
-
-### 非静态版
+## 一键运行
 
 双击：
 
@@ -21,105 +16,127 @@
 http://127.0.0.1:5000
 ```
 
-### 静态演示版
+首次运行如缺少依赖，先安装：
 
-直接双击：
-
-```text
-static-demo.html
+```bash
+pip install -r requirements.txt
 ```
 
-## 当前训练数据
+## 系统模块
 
-当前已经合并 3 个数据来源：
+非静态版前端包含 5 个模块：
 
-1. Indonesian License Plate Detection Dataset (YOLOv11 Format)
-   - DOI：10.5281/zenodo.15605718
-   - 原始来源：Roboflow Universe 项目 `anpr-model-1`
+- 识别工作台：上传图片，返回识别图、车辆图、车牌裁剪图和目标明细。
+- 车辆档案：查看登记车辆、车主部门、权限和最近通行信息。
+- 通行记录：查看门岗通行流水。
+- 黑白名单：查看自动放行车辆和需要人工复核车辆。
+- 系统设置：查看当前模型优先级、OCR 引擎和识别阈值。
 
-2. Roboflow Public - License Plates Dataset
-   - 下载格式：YOLO v5 PyTorch
-   - 数据量：350 张
+后端接口：
 
-3. Kaggle - Automatic License Plate Recognition (ALPR) Dataset
-   - 文件：`archive.zip`
-   - 数据量：24238 张
+- `/detect`：图片识别接口。
+- `/api/fleet`：车辆档案 JSON。
+- `/api/pass-records`：通行记录 JSON。
+- `/api/access-lists`：黑白名单 JSON。
+- `/api/settings`：系统设置 JSON。
 
-合并后数据规模：
+## AI 推理策略
 
-- 总图片：25554 张
-- 训练集：22094 张
-- 验证集：2310 张
-- 测试集：1150 张
-
-## 当前训练结果
-
-- 模型：轻量 YOLO 风格网格检测模型
-- 框架：PyTorch
-- 训练轮数：12 epochs
-- batch size：64
-- 数据增强：亮度、对比度、噪声、轻微模糊
-- 最佳验证损失：0.1420
-- 测试集损失：0.1196
-- 模型文件：`models/tiny_plate_detector.pt`
-- 测试样例图：`outputs/samples/bigdata_sample_*.jpg`
-
-## 重新合并和训练
-
-如果继续添加新的 YOLO 格式数据集，把 zip 放到：
+检测模型优先级：
 
 ```text
-datasets
+models/yolov8_plate.pt 或 models/best.pt
+> models/yolov5s.onnx
+> models/tiny_plate_detector.pt
+> OpenCV 兜底检测
 ```
 
-或：
+OCR 优先级：
 
 ```text
-datasets/extra
+PaddleOCR > EasyOCR > Tesseract > 数据集文件名标注兜底
 ```
 
-然后运行：
+当前仓库保留了课程演示用模型：
+
+```text
+models/tiny_plate_detector.pt
+```
+
+如果训练出更高准确率模型，把 `best.pt` 放到 `models/best.pt` 或 `models/yolov8_plate.pt`，重启系统即可自动优先加载。
+
+## 推荐训练方式
+
+基础依赖：
+
+```bash
+pip install -r requirements.txt
+```
+
+增强训练和 OCR 依赖：
+
+```bash
+pip install -r requirements-ai.txt
+```
+
+合并数据集：
 
 ```bash
 python prepare_combined_dataset.py --base datasets/anpr-model-1 --extra datasets --output datasets/combined
-python train_plate_model.py --data datasets/combined --epochs 12 --batch 64
 ```
 
-也可以直接双击：
+推荐训练 YOLOv8：
+
+```bash
+python train_yolov8_plate.py --data datasets/combined/data.yaml --epochs 80 --imgsz 640 --batch 16
+```
+
+训练完成后脚本会尝试把最佳模型复制到：
 
 ```text
-合并数据并重新训练.bat
+models/yolov8_plate.pt
 ```
 
-## 项目功能
+CPU 训练会比较慢；如果电脑没有 NVIDIA 显卡，可以在 Kaggle 或 Colab 训练，再把 `best.pt` 下载回来放进 `models/`。
 
-- 上传车辆图片
-- 检测车辆和车牌区域
-- 绘制检测框并生成结果图
-- 识别车牌号
-- 推断车辆类型
-- 返回车辆图片和车牌裁剪图
-- 展示数量、置信度、目标坐标
-- 支持非静态 Flask 版和单文件静态演示版
+## 数据集来源
 
-## OCR 说明
+原始数据集较大，按课程要求不放入最终提交包，只在报告中注明来源：
 
-系统会优先尝试调用本机 `pytesseract`。如果电脑没有安装 OCR 引擎，演示样例会使用数据集文件名里的真实车牌标注作为 OCR 兜底，保证课堂演示截图能稳定显示车牌数字。OCR 相关逻辑在 `ocr_engine.py`。
+1. Zenodo / Roboflow Universe：Indonesian License Plate Detection Dataset，DOI：10.5281/zenodo.15605718
+2. Roboflow Public：License Plates Dataset，YOLO v5 PyTorch 格式
+3. Kaggle：Automatic License Plate Recognition (ALPR) Dataset
 
-## 运行截图
-
-真实运行截图已经保存在：
+本地数据集目录：
 
 ```text
-deliverables/screenshots
+datasets/
 ```
 
-演示样例说明：
+最终提交包不会包含该目录。
+
+## 项目结构
+
+详细文件说明见：
 
 ```text
-deliverables/真实运行截图说明.md
+docs/project_structure.md
 ```
 
-## 作业题目建议
+## 课程材料
 
-基于 YOLO 的校园车辆与车牌检测系统设计与实现
+最终材料位于：
+
+```text
+deliverables/
+```
+
+包含课程报告、陈述 PPT、功能演示视频、开发日志与沟通记录、三份个人实习实训日志、运行截图和提交清单。
+
+最终压缩包：
+
+```text
+24281098.zip
+```
+
+该压缩包按组长学号命名，已排除原始数据集、运行缓存、旧包和临时预览文件。
