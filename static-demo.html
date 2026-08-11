@@ -3,252 +3,288 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>校园车辆与车牌检测系统 - 静态演示版</title>
+    <title>企业车牌识别与车辆管理系统 - 静态演示版</title>
     <style>
       :root {
-        --bg: #eef2f6;
+        --bg: #eef2f5;
         --panel: #ffffff;
-        --ink: #17202a;
+        --ink: #152033;
         --muted: #667085;
-        --line: #d8e0ea;
+        --line: #d9e1ec;
         --blue: #2563eb;
-        --green: #16865b;
-        --orange: #ea7a24;
+        --blue-dark: #1d4ed8;
+        --green: #16845b;
+        --orange: #d97706;
+        --red: #dc2626;
+        --dark: #111827;
+        --shadow: 0 18px 42px rgba(15, 23, 42, 0.08);
       }
 
-      * {
-        box-sizing: border-box;
-      }
-
+      * { box-sizing: border-box; }
       body {
         margin: 0;
         min-height: 100vh;
-        font-family: "Microsoft YaHei", "Segoe UI", Arial, sans-serif;
         color: var(--ink);
-        background:
-          linear-gradient(135deg, rgba(37, 99, 235, 0.13), transparent 34%),
-          linear-gradient(225deg, rgba(22, 134, 91, 0.14), transparent 34%),
-          var(--bg);
+        background: var(--bg);
+        font-family: "Microsoft YaHei", "Segoe UI", Arial, sans-serif;
       }
 
-      .app {
-        width: min(1260px, calc(100vw - 32px));
-        margin: 24px auto;
+      button, input { font: inherit; }
+      button { cursor: pointer; }
+
+      .shell {
+        min-height: 100vh;
         display: grid;
-        grid-template-columns: minmax(0, 1fr) 350px;
-        gap: 18px;
+        grid-template-columns: 238px minmax(0, 1fr);
       }
 
-      .panel {
-        background: rgba(255, 255, 255, 0.94);
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        box-shadow: 0 18px 44px rgba(18, 28, 45, 0.12);
+      .sidebar {
+        padding: 22px 16px;
+        color: #dbeafe;
+        background: linear-gradient(180deg, #111827, #172033);
       }
+
+      .brand {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        padding-bottom: 18px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+      }
+      .mark {
+        width: 42px;
+        height: 42px;
+        display: grid;
+        place-items: center;
+        border-radius: 8px;
+        color: #fff;
+        background: var(--blue);
+        font-size: 24px;
+        font-weight: 900;
+      }
+      .brand strong, .brand small { display: block; }
+      .brand strong { color: #fff; font-size: 17px; }
+      .brand small { margin-top: 3px; color: #94a3b8; }
+
+      .nav {
+        display: grid;
+        gap: 6px;
+        margin-top: 24px;
+      }
+      .nav button {
+        height: 42px;
+        border: 0;
+        border-radius: 6px;
+        color: #cbd5e1;
+        background: transparent;
+        text-align: left;
+        padding: 0 12px;
+      }
+      .nav button.active, .nav button:hover {
+        color: #fff;
+        background: rgba(37, 99, 235, 0.24);
+      }
+
+      .operator {
+        position: sticky;
+        top: 20px;
+        margin-top: 36px;
+        padding: 14px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.05);
+      }
+      .operator span, .operator strong, .operator small { display: block; }
+      .operator span, .operator small { color: #9fb0c8; font-size: 13px; }
+      .operator strong { margin: 6px 0; color: #fff; }
 
       .main {
-        padding: 24px;
+        min-width: 0;
+        padding: 22px;
+        display: grid;
+        gap: 16px;
       }
 
-      .top {
+      .topbar {
+        min-height: 74px;
         display: flex;
-        align-items: flex-start;
+        align-items: center;
         justify-content: space-between;
         gap: 16px;
-        margin-bottom: 18px;
       }
-
-      .eyebrow {
-        margin: 0 0 8px;
-        color: var(--green);
-        font-size: 13px;
-        font-weight: 800;
-      }
-
-      h1,
-      h2,
-      h3,
-      p {
-        margin-top: 0;
-      }
-
-      h1 {
-        margin-bottom: 6px;
-        font-size: 30px;
-        line-height: 1.18;
-      }
-
-      .sub {
+      .topbar p, .section-head p {
         margin: 0;
         color: var(--muted);
-        font-size: 14px;
+        font-size: 13px;
       }
+      .topbar h1, .section-head h2 {
+        margin: 4px 0 0;
+      }
+      .topbar h1 { font-size: 28px; }
+      .section-head h2 { font-size: 20px; }
 
-      .badge {
-        flex: 0 0 auto;
-        max-width: 180px;
-        padding: 8px 12px;
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        height: 32px;
         border-radius: 999px;
-        background: #e4f6ee;
-        color: #126343;
+        padding: 0 12px;
+        color: #065f46;
+        background: #dff6ea;
         font-size: 13px;
         font-weight: 800;
-        text-align: center;
+        white-space: nowrap;
+      }
+
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 12px;
+      }
+      .card, .stat, .panel {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--panel);
+        box-shadow: var(--shadow);
+      }
+      .stat { padding: 16px; }
+      .stat strong {
+        display: block;
+        color: var(--blue);
+        font-size: 28px;
+      }
+      .stat span {
+        display: block;
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .work {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 388px;
+        gap: 16px;
+        align-items: start;
+      }
+      .panel { padding: 18px; }
+      .section-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 12px;
+        margin-bottom: 16px;
       }
 
       .drop {
-        min-height: 140px;
+        min-height: 118px;
         display: grid;
         place-items: center;
-        gap: 8px;
-        border: 2px dashed #aab8ca;
+        gap: 6px;
+        padding: 18px;
+        border: 2px dashed #a8b5c5;
         border-radius: 8px;
         background: #f8fafc;
         text-align: center;
         cursor: pointer;
       }
-
-      .drop:hover,
-      .drop.dragging {
+      .drop:hover, .drop.dragging {
         border-color: var(--blue);
         background: #edf5ff;
       }
-
-      .drop input {
-        display: none;
-      }
-
-      .plus {
-        width: 42px;
-        height: 42px;
+      .drop input { display: none; }
+      .upload-icon {
+        width: 36px;
+        height: 36px;
         display: grid;
         place-items: center;
         border-radius: 50%;
+        color: #fff;
         background: var(--blue);
-        color: white;
-        font-size: 30px;
-        line-height: 1;
+        font-size: 26px;
+        font-weight: 800;
       }
+      .drop small { color: var(--muted); }
 
       .actions {
         display: flex;
-        gap: 12px;
-        margin: 18px 0;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 14px;
       }
-
-      button {
-        height: 42px;
-        padding: 0 18px;
+      .primary, .secondary {
+        height: 38px;
         border: 0;
         border-radius: 6px;
-        color: white;
-        background: var(--blue);
+        padding: 0 14px;
         font-weight: 800;
-        cursor: pointer;
       }
+      .primary { color: #fff; background: var(--blue); }
+      .primary:hover { background: var(--blue-dark); }
+      .secondary { color: var(--ink); background: #e5ebf3; }
 
-      button.secondary {
-        color: var(--ink);
-        background: #e6edf5;
-      }
-
-      .viewer {
+      .image-grid {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 16px;
+        gap: 14px;
+        margin-top: 16px;
       }
-
       figure {
         margin: 0;
         border: 1px solid var(--line);
         border-radius: 8px;
         overflow: hidden;
-        background: #101820;
+        background: #f8fafc;
       }
-
       figcaption {
         padding: 10px 12px;
-        background: #f8fafc;
         border-bottom: 1px solid var(--line);
         color: var(--muted);
-        font-size: 14px;
+        font-size: 13px;
         font-weight: 800;
       }
-
-      canvas,
-      img {
+      figure img, canvas {
         width: 100%;
-        height: 420px;
+        height: 360px;
         display: block;
         object-fit: contain;
+        background: #0f172a;
       }
+      figure img:not([src]) { display: none; }
 
-      img:not([src]) {
-        display: none;
-      }
-
-      .side {
-        padding: 22px;
-        align-self: start;
-      }
-
-      .metrics {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 10px;
-        margin-bottom: 20px;
-      }
-
-      .metric {
-        padding: 14px 10px;
-        border: 1px solid var(--line);
+      .readout {
+        border: 1px solid #cfd9e7;
         border-radius: 8px;
-        background: #f8fafc;
+        padding: 16px;
+        background: #f8fbff;
       }
-
-      .metric strong {
+      .readout span, .readout p { color: var(--muted); }
+      .readout span { font-size: 13px; font-weight: 800; }
+      .readout strong {
         display: block;
-        color: var(--orange);
-        font-size: 24px;
+        margin-top: 6px;
+        font-size: 30px;
+        letter-spacing: 0;
       }
+      .readout p { margin: 6px 0 0; font-size: 13px; }
 
-      .metric span {
-        color: var(--muted);
-        font-size: 12px;
-      }
-
-      .list,
-      .plates {
+      .manual {
+        margin-top: 14px;
         display: grid;
-        gap: 10px;
+        grid-template-columns: minmax(0, 1fr) 88px;
+        gap: 8px;
+      }
+      input[type="text"], input[type="search"] {
+        height: 38px;
+        border: 1px solid #cfd8e5;
+        border-radius: 6px;
+        padding: 0 11px;
+        color: var(--ink);
+        background: #fff;
       }
 
-      .item {
-        padding: 12px;
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        background: #fbfcfe;
-      }
-
-      .item strong,
-      .item span,
-      .item small {
-        display: block;
-      }
-
-      .item span {
-        margin-top: 5px;
-        color: var(--green);
-        font-weight: 800;
-      }
-
-      .item small {
-        margin-top: 4px;
-        color: var(--muted);
-      }
-
+      .profile { margin-top: 14px; }
       .empty {
-        min-height: 62px;
+        min-height: 120px;
         display: grid;
         place-items: center;
         border: 1px dashed var(--line);
@@ -257,116 +293,296 @@
         background: #f8fafc;
         font-size: 14px;
       }
-
-      .plates:not(.empty) {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+      .profile-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 12px;
       }
+      .profile-title span { display: block; color: var(--muted); font-size: 13px; }
+      .profile-title strong { display: block; margin-top: 2px; font-size: 26px; }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        height: 24px;
+        border-radius: 999px;
+        padding: 0 9px;
+        font-size: 12px;
+        font-style: normal;
+        font-weight: 900;
+      }
+      .ok { color: #05603a; background: #dcfce7; }
+      .warn { color: #92400e; background: #fef3c7; }
+      .danger { color: #991b1b; background: #fee2e2; }
 
-      .plates canvas {
-        height: auto;
+      .details { display: grid; gap: 8px; margin: 0; }
+      .details div {
+        display: grid;
+        grid-template-columns: 88px minmax(0, 1fr);
+        gap: 10px;
+        padding: 9px 0;
+        border-bottom: 1px solid #edf1f6;
+      }
+      .details dt { color: var(--muted); font-size: 13px; }
+      .details dd { margin: 0; font-weight: 700; }
+
+      .lower {
+        display: grid;
+        grid-template-columns: minmax(0, 1.1fr) minmax(360px, 0.9fr);
+        gap: 16px;
+        align-items: start;
+      }
+      .table-wrap { overflow-x: auto; }
+      table { width: 100%; border-collapse: collapse; font-size: 14px; }
+      th, td {
+        padding: 12px 10px;
+        border-bottom: 1px solid #e8eef5;
+        text-align: left;
+        white-space: nowrap;
+      }
+      th { color: var(--muted); font-size: 12px; background: #f8fafc; }
+      tbody tr { cursor: pointer; }
+      tbody tr:hover { background: #f8fbff; }
+
+      .evidence {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+      .list {
+        display: grid;
+        gap: 10px;
+      }
+      .item {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 11px;
+        background: #fbfcfe;
+      }
+      .item strong, .item span, .item small { display: block; }
+      .item span { margin-top: 5px; color: var(--orange); font-weight: 800; }
+      .item small { margin-top: 3px; color: var(--muted); }
+      .plate-crop {
+        width: 100%;
         aspect-ratio: 3 / 1;
         border: 1px solid var(--line);
         border-radius: 6px;
         background: #111827;
       }
 
-      @media (max-width: 960px) {
-        .app,
-        .viewer {
-          grid-template-columns: 1fr;
-        }
+      @media (max-width: 1180px) {
+        .shell { grid-template-columns: 1fr; }
+        .sidebar { display: none; }
+        .work, .lower { grid-template-columns: 1fr; }
+      }
+      @media (max-width: 760px) {
+        .main { padding: 12px; }
+        .topbar, .section-head { display: grid; align-items: stretch; }
+        .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .image-grid, .evidence { grid-template-columns: 1fr; }
+        figure img, canvas { height: 280px; }
       }
     </style>
   </head>
   <body>
-    <main class="app">
-      <section class="panel main">
-        <div class="top">
+    <div class="shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="mark">AI</div>
           <div>
-            <p class="eyebrow">Visual AI Course Project</p>
-            <h1>校园车辆与车牌检测系统</h1>
-            <p class="sub">静态演示版：直接打开 HTML 即可上传图片并生成检测展示。</p>
+            <strong>CarPlate 管理系统</strong>
+            <small>静态演示版</small>
           </div>
-          <span class="badge" id="mode">等待检测</span>
         </div>
-
-        <label class="drop" id="drop">
-          <input id="file" type="file" accept="image/*" />
-          <span class="plus">+</span>
-          <strong>上传车辆图片</strong>
-          <small>浏览器本地处理，不需要启动服务器</small>
-        </label>
-
-        <div class="actions">
-          <button id="detect">开始检测</button>
-          <button id="reset" class="secondary">重新选择</button>
-          <button id="download" class="secondary">保存结果图</button>
+        <nav class="nav">
+          <button class="active">识别工作台</button>
+          <button>车辆档案</button>
+          <button>通行记录</button>
+          <button>黑白名单</button>
+          <button>系统设置</button>
+        </nav>
+        <div class="operator">
+          <span>当前模式</span>
+          <strong>浏览器本地演示</strong>
+          <small>不依赖 Flask 服务，适合答辩兜底展示</small>
         </div>
-
-        <div class="viewer">
-          <figure>
-            <figcaption>原始图片</figcaption>
-            <img id="preview" alt="原始图片预览" />
-          </figure>
-          <figure>
-            <figcaption>检测结果</figcaption>
-            <canvas id="canvas"></canvas>
-          </figure>
-        </div>
-      </section>
-
-      <aside class="panel side">
-        <h2>检测结果</h2>
-        <div class="metrics">
-          <div class="metric"><strong id="vehicles">0</strong><span>车辆数量</span></div>
-          <div class="metric"><strong id="plates">0</strong><span>车牌数量</span></div>
-          <div class="metric"><strong id="conf">0</strong><span>平均置信度</span></div>
-        </div>
-
-        <h3>目标明细</h3>
-        <div class="list empty" id="list">暂无检测结果</div>
-
-        <h3 style="margin-top: 20px">车牌裁剪</h3>
-        <div class="plates empty" id="plateGallery">暂无车牌区域</div>
       </aside>
-    </main>
+
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <p>Visual AI Course Project</p>
+            <h1>企业车牌识别与车辆管理系统</h1>
+          </div>
+          <span class="pill" id="mode">等待上传图片</span>
+        </header>
+
+        <section class="stats">
+          <div class="stat"><strong id="vehicleCount">0</strong><span>车辆目标</span></div>
+          <div class="stat"><strong id="plateCount">0</strong><span>车牌目标</span></div>
+          <div class="stat"><strong id="ocrCount">0</strong><span>识别车牌</span></div>
+          <div class="stat"><strong id="confidence">0.00</strong><span>模拟置信度</span></div>
+          <div class="stat"><strong id="decision">待检测</strong><span>通行决策</span></div>
+        </section>
+
+        <section class="work">
+          <div class="panel">
+            <div class="section-head">
+              <div>
+                <p>Recognition Workspace</p>
+                <h2>图片识别演示</h2>
+              </div>
+              <span class="pill">静态版：规则模拟 + 档案匹配</span>
+            </div>
+
+            <label class="drop" id="drop">
+              <input id="file" type="file" accept="image/*" />
+              <span class="upload-icon">+</span>
+              <strong>上传车辆图片</strong>
+              <small>推荐使用国内蓝牌实拍图，系统会生成车辆框、车牌框和档案查询结果</small>
+            </label>
+
+            <div class="actions">
+              <button class="primary" id="detectBtn">开始识别</button>
+              <button class="secondary" id="sampleXiang">模拟：湘DGQ550</button>
+              <button class="secondary" id="sampleYue">模拟：粤A78T3R</button>
+              <button class="secondary" id="downloadBtn">保存结果图</button>
+              <button class="secondary" id="resetBtn">重置</button>
+            </div>
+
+            <div class="image-grid">
+              <figure>
+                <figcaption>原始车辆图片</figcaption>
+                <img id="preview" alt="原始车辆图片预览" />
+              </figure>
+              <figure>
+                <figcaption>AI 识别结果</figcaption>
+                <canvas id="canvas"></canvas>
+              </figure>
+            </div>
+          </div>
+
+          <aside class="panel">
+            <div class="section-head">
+              <div>
+                <p>Vehicle Lookup</p>
+                <h2>车辆查询</h2>
+              </div>
+            </div>
+            <div class="readout">
+              <span>识别车牌</span>
+              <strong id="plateText">未识别</strong>
+              <p id="plateMessage">上传图片后开始静态演示识别。</p>
+            </div>
+            <div class="manual">
+              <input id="manualPlate" type="text" placeholder="手动输入或校正车牌，如 湘DGQ550" />
+              <button class="primary" id="manualBtn">查询</button>
+            </div>
+            <div class="profile" id="profile">
+              <div class="empty">暂无车辆档案</div>
+            </div>
+          </aside>
+        </section>
+
+        <section class="lower">
+          <div class="panel">
+            <div class="section-head">
+              <div>
+                <p>Registered Vehicles</p>
+                <h2>车辆档案库</h2>
+              </div>
+              <input id="fleetSearch" type="search" placeholder="筛选车牌、车主、部门" />
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>车牌号</th>
+                    <th>车辆类型</th>
+                    <th>车主/部门</th>
+                    <th>权限</th>
+                    <th>状态</th>
+                    <th>最近通行</th>
+                  </tr>
+                </thead>
+                <tbody id="fleetRows"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="section-head">
+              <div>
+                <p>Evidence</p>
+                <h2>识别过程</h2>
+              </div>
+            </div>
+            <div class="evidence">
+              <div>
+                <h3>车牌裁剪</h3>
+                <canvas class="plate-crop" id="plateCrop"></canvas>
+              </div>
+              <div>
+                <h3>目标明细</h3>
+                <div class="list" id="targetList">
+                  <div class="empty">暂无检测目标</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
 
     <script>
+      const fleet = [
+        { plate: "湘DGQ550", type: "小型乘用车", owner: "测试车辆 · 实拍样例", permit: "临时测试", status: "需核验", lastSeen: "实拍测试 · RapidOCR", brand: "Volkswagen Lavida", color: "白色" },
+        { plate: "粤A78T3R", type: "小型乘用车", owner: "测试车辆 · 夜间样例", permit: "临时测试", status: "需核验", lastSeen: "相似字符校正", brand: "Toyota Sedan", color: "白色" },
+        { plate: "吉A10VE7", type: "小型乘用车", owner: "测试车辆 · 国内蓝牌样例", permit: "临时测试", status: "需核验", lastSeen: "中文车牌校正", brand: "Volkswagen Sedan", color: "白色" },
+        { plate: "粤TM1314", type: "小型乘用车", owner: "测试车辆 · 粤T 样例", permit: "临时测试", status: "需核验", lastSeen: "省份前缀补全", brand: "Hyundai Sedan", color: "白色" },
+        { plate: "京KBT355", type: "小型乘用车", owner: "测试车辆 · 京K 样例", permit: "临时测试", status: "需核验", lastSeen: "近似字符校正", brand: "Toyota Sedan", color: "白色" },
+        { plate: "BB8986", type: "小型乘用车", owner: "行政部 · 张明", permit: "长期通行", status: "正常", lastSeen: "今天 08:42 · 南门", brand: "Mercedes-Benz", color: "深蓝色" },
+        { plate: "EVSROCK", type: "小型乘用车", owner: "测试车队 · 演示车辆", permit: "演示权限", status: "正常", lastSeen: "今天 14:26 · 南门", brand: "EV Demo Car", color: "白色" }
+      ];
+
+      const ambiguous = { "4": "A", "8": "B", "1": "T", "5": "S", "0": "O" };
       const fileInput = document.querySelector("#file");
       const preview = document.querySelector("#preview");
       const canvas = document.querySelector("#canvas");
       const ctx = canvas.getContext("2d");
+      const cropCanvas = document.querySelector("#plateCrop");
+      const cropCtx = cropCanvas.getContext("2d");
       const mode = document.querySelector("#mode");
-      const list = document.querySelector("#list");
-      const gallery = document.querySelector("#plateGallery");
-      const vehiclesEl = document.querySelector("#vehicles");
-      const platesEl = document.querySelector("#plates");
-      const confEl = document.querySelector("#conf");
       const drop = document.querySelector("#drop");
-
+      const targetList = document.querySelector("#targetList");
+      const plateText = document.querySelector("#plateText");
+      const plateMessage = document.querySelector("#plateMessage");
+      const profile = document.querySelector("#profile");
+      const manualPlate = document.querySelector("#manualPlate");
       let img = new Image();
       let ready = false;
+      let simulatedPlate = "湘DGQ550";
+
+      renderFleet(fleet);
 
       fileInput.addEventListener("change", () => loadFile(fileInput.files[0]));
-      drop.addEventListener("dragover", (event) => {
-        event.preventDefault();
-        drop.classList.add("dragging");
-      });
+      drop.addEventListener("dragover", (event) => { event.preventDefault(); drop.classList.add("dragging"); });
       drop.addEventListener("dragleave", () => drop.classList.remove("dragging"));
       drop.addEventListener("drop", (event) => {
         event.preventDefault();
         drop.classList.remove("dragging");
         loadFile(event.dataTransfer.files[0]);
       });
-
-      document.querySelector("#detect").addEventListener("click", runDetect);
-      document.querySelector("#reset").addEventListener("click", reset);
-      document.querySelector("#download").addEventListener("click", () => {
-        if (!ready) return;
-        const link = document.createElement("a");
-        link.download = "campus-vehicle-detection-result.png";
-        link.href = canvas.toDataURL("image/png");
-        link.click();
+      document.querySelector("#detectBtn").addEventListener("click", () => runDetect(simulatedPlate));
+      document.querySelector("#sampleXiang").addEventListener("click", () => { simulatedPlate = "湘DGQ550"; runDetect(simulatedPlate); });
+      document.querySelector("#sampleYue").addEventListener("click", () => { simulatedPlate = "478T3R"; runDetect(simulatedPlate); });
+      document.querySelector("#manualBtn").addEventListener("click", () => applyPlate(manualPlate.value || simulatedPlate, true));
+      document.querySelector("#resetBtn").addEventListener("click", reset);
+      document.querySelector("#downloadBtn").addEventListener("click", downloadResult);
+      document.querySelector("#fleetSearch").addEventListener("input", (event) => {
+        const keyword = event.target.value.trim().toUpperCase();
+        renderFleet(fleet.filter((item) => JSON.stringify(item).toUpperCase().includes(keyword)));
       });
 
       function loadFile(file) {
@@ -380,91 +596,179 @@
           canvas.height = img.naturalHeight;
           ctx.drawImage(img, 0, 0);
           mode.textContent = "图片已选择";
-          clearStats();
+          clearResult();
         };
         img.src = url;
       }
 
-      function runDetect() {
+      function runDetect(rawPlate) {
         if (!ready) {
-          mode.textContent = "请先上传图片";
+          mode.textContent = "请先上传车辆图片";
           return;
         }
-
         canvas.width = img.naturalWidth;
         canvas.height = img.naturalHeight;
         ctx.drawImage(img, 0, 0);
 
         const w = canvas.width;
         const h = canvas.height;
-        const vehicleBox = [Math.round(w * 0.12), Math.round(h * 0.24), Math.round(w * 0.88), Math.round(h * 0.82)];
-        const plateBox = [
-          Math.round(w * 0.39),
-          Math.round(h * 0.61),
-          Math.round(w * 0.61),
-          Math.round(h * 0.69),
+        const vehicleBox = [Math.round(w * 0.08), Math.round(h * 0.22), Math.round(w * 0.92), Math.round(h * 0.90)];
+        const plateBox = estimatePlateBox(w, h);
+        const corrected = correctPlate(rawPlate);
+        const targets = [
+          { label: "车辆", confidence: 0.86, box: vehicleBox, color: "#16845b" },
+          { label: "车牌", confidence: 0.91, box: plateBox, color: "#d97706", text: corrected }
         ];
-        const detections = [
-          { label: "车辆", confidence: 0.86, box: vehicleBox, color: "#16865b" },
-          { label: "车牌", confidence: 0.82, box: plateBox, color: "#ea7a24" },
-        ];
-
-        detections.forEach(drawBox);
-        renderStats(detections);
+        targets.forEach(drawBox);
         cropPlate(plateBox);
-        mode.textContent = "静态演示检测";
+        renderTargets(targets, rawPlate, corrected);
+        applyPlate(corrected, false, rawPlate);
+        mode.textContent = "静态演示识别完成";
+      }
+
+      function estimatePlateBox(w, h) {
+        const horizontal = w >= h;
+        if (horizontal) {
+          return [Math.round(w * 0.38), Math.round(h * 0.62), Math.round(w * 0.64), Math.round(h * 0.73)];
+        }
+        return [Math.round(w * 0.38), Math.round(h * 0.73), Math.round(w * 0.72), Math.round(h * 0.82)];
       }
 
       function drawBox(item) {
         const [x1, y1, x2, y2] = item.box;
-        ctx.lineWidth = Math.max(3, Math.round(canvas.width / 260));
+        ctx.lineWidth = Math.max(3, Math.round(canvas.width / 280));
         ctx.strokeStyle = item.color;
         ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
-        const text = `${item.label} ${item.confidence.toFixed(2)}`;
-        ctx.font = `${Math.max(18, Math.round(canvas.width / 42))}px Microsoft YaHei, Arial`;
-        const width = ctx.measureText(text).width + 18;
-        const height = Math.max(30, Math.round(canvas.width / 30));
+        const text = item.text ? `${item.text} ${item.confidence.toFixed(2)}` : `${item.label} ${item.confidence.toFixed(2)}`;
+        ctx.font = `${Math.max(18, Math.round(canvas.width / 46))}px Microsoft YaHei, Arial`;
+        const tw = ctx.measureText(text).width + 18;
+        const th = Math.max(32, Math.round(canvas.width / 34));
         ctx.fillStyle = item.color;
-        ctx.fillRect(x1, Math.max(0, y1 - height), width, height);
+        ctx.fillRect(x1, Math.max(0, y1 - th), tw, th);
         ctx.fillStyle = "#fff";
         ctx.fillText(text, x1 + 9, Math.max(22, y1 - 9));
       }
 
-      function renderStats(items) {
-        const vehicleCount = items.filter((item) => item.label === "车辆").length;
-        const plateCount = items.filter((item) => item.label === "车牌").length;
-        const avg = items.reduce((sum, item) => sum + item.confidence, 0) / items.length;
-        vehiclesEl.textContent = vehicleCount;
-        platesEl.textContent = plateCount;
-        confEl.textContent = avg.toFixed(2);
-        list.className = "list";
-        list.innerHTML = items
-          .map(
-            (item, index) =>
-              `<div class="item"><strong>${index + 1}. ${item.label}</strong><span>置信度 ${(item.confidence * 100).toFixed(1)}%</span><small>坐标 [${item.box.join(", ")}]</small></div>`,
-          )
-          .join("");
-      }
-
       function cropPlate(box) {
         const [x1, y1, x2, y2] = box;
-        const crop = document.createElement("canvas");
-        crop.width = x2 - x1;
-        crop.height = y2 - y1;
-        crop.getContext("2d").drawImage(img, x1, y1, crop.width, crop.height, 0, 0, crop.width, crop.height);
-        gallery.className = "plates";
-        gallery.innerHTML = "";
-        gallery.appendChild(crop);
+        cropCanvas.width = Math.max(1, x2 - x1);
+        cropCanvas.height = Math.max(1, y2 - y1);
+        cropCtx.drawImage(img, x1, y1, cropCanvas.width, cropCanvas.height, 0, 0, cropCanvas.width, cropCanvas.height);
       }
 
-      function clearStats() {
-        vehiclesEl.textContent = "0";
-        platesEl.textContent = "0";
-        confEl.textContent = "0";
-        list.className = "list empty";
-        list.textContent = "暂无检测结果";
-        gallery.className = "plates empty";
-        gallery.textContent = "暂无车牌区域";
+      function correctPlate(raw) {
+        const clean = String(raw || "").toUpperCase().replace(/[\s·.-]/g, "");
+        const exact = fleet.find((item) => item.plate === clean);
+        if (exact) return exact.plate;
+        const normalized = clean.split("").map((ch) => ambiguous[ch] || ch).join("");
+        let best = null;
+        let bestScore = 99;
+        for (const item of fleet) {
+          const core = item.plate.replace(/^[\u4e00-\u9fff]/, "");
+          const score = distance(normalized, core);
+          if (score < bestScore || core.endsWith(normalized)) {
+            best = item;
+            bestScore = core.endsWith(normalized) ? 0.2 : score;
+          }
+        }
+        return best && bestScore <= 2 ? best.plate : clean;
+      }
+
+      function distance(a, b) {
+        const dp = Array.from({ length: a.length + 1 }, () => Array(b.length + 1).fill(0));
+        for (let i = 0; i <= a.length; i++) dp[i][0] = i;
+        for (let j = 0; j <= b.length; j++) dp[0][j] = j;
+        for (let i = 1; i <= a.length; i++) {
+          for (let j = 1; j <= b.length; j++) {
+            dp[i][j] = Math.min(
+              dp[i - 1][j] + 1,
+              dp[i][j - 1] + 1,
+              dp[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
+            );
+          }
+        }
+        return dp[a.length][b.length];
+      }
+
+      function applyPlate(value, manual, raw = "") {
+        const corrected = correctPlate(value);
+        const item = fleet.find((entry) => entry.plate === corrected);
+        plateText.textContent = corrected || "未识别";
+        manualPlate.value = corrected || "";
+        document.querySelector("#vehicleCount").textContent = ready ? "1" : "0";
+        document.querySelector("#plateCount").textContent = ready ? "1" : "0";
+        document.querySelector("#ocrCount").textContent = corrected ? "1" : "0";
+        document.querySelector("#confidence").textContent = ready ? "0.91" : "0.00";
+        if (item) {
+          const changed = raw && raw !== corrected;
+          plateMessage.textContent = changed ? `原始识别 ${raw}，已按车辆档案校正。` : "已匹配车辆档案。";
+          document.querySelector("#decision").textContent = item.status === "正常" ? "放行" : "核验";
+          renderProfile(item);
+        } else {
+          plateMessage.textContent = manual ? "未在车辆档案库中找到，需要门岗人工登记。" : "识别成功，但未匹配车辆档案。";
+          document.querySelector("#decision").textContent = "人工";
+          profile.innerHTML = '<div class="empty">未找到车辆档案</div>';
+        }
+      }
+
+      function renderProfile(item) {
+        const cls = item.status === "正常" ? "ok" : item.status === "异常" ? "danger" : "warn";
+        profile.innerHTML = `
+          <div class="profile-title">
+            <div><span>${item.type}</span><strong>${item.plate}</strong></div>
+            <em class="badge ${cls}">${item.status}</em>
+          </div>
+          <dl class="details">
+            <div><dt>车主/部门</dt><dd>${item.owner}</dd></div>
+            <div><dt>品牌车型</dt><dd>${item.brand}</dd></div>
+            <div><dt>车辆颜色</dt><dd>${item.color}</dd></div>
+            <div><dt>通行权限</dt><dd>${item.permit}</dd></div>
+            <div><dt>最近通行</dt><dd>${item.lastSeen}</dd></div>
+          </dl>
+        `;
+      }
+
+      function renderTargets(items, raw, corrected) {
+        targetList.innerHTML = items.map((item, index) => `
+          <article class="item">
+            <strong>${index + 1}. ${item.label}</strong>
+            <span>${item.text ? `OCR：${item.text}` : `置信度：${(item.confidence * 100).toFixed(1)}%`}</span>
+            <small>${item.text && raw !== corrected ? `原始候选：${raw}` : `坐标：[${item.box.join(", ")}]`}</small>
+          </article>
+        `).join("");
+      }
+
+      function renderFleet(rows) {
+        document.querySelector("#fleetRows").innerHTML = rows.map((item) => {
+          const cls = item.status === "正常" ? "ok" : item.status === "异常" ? "danger" : "warn";
+          return `<tr data-plate="${item.plate}">
+            <td><strong>${item.plate}</strong></td>
+            <td>${item.type}</td>
+            <td>${item.owner}</td>
+            <td>${item.permit}</td>
+            <td><span class="badge ${cls}">${item.status}</span></td>
+            <td>${item.lastSeen}</td>
+          </tr>`;
+        }).join("");
+        document.querySelectorAll("#fleetRows tr").forEach((row) => {
+          row.addEventListener("click", () => applyPlate(row.dataset.plate, true));
+        });
+      }
+
+      function clearResult() {
+        plateText.textContent = "未识别";
+        plateMessage.textContent = "图片已加载，可以开始识别。";
+        manualPlate.value = "";
+        profile.innerHTML = '<div class="empty">暂无车辆档案</div>';
+        targetList.innerHTML = '<div class="empty">暂无检测目标</div>';
+        cropCanvas.width = 320;
+        cropCanvas.height = 100;
+        cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
+        document.querySelector("#vehicleCount").textContent = "0";
+        document.querySelector("#plateCount").textContent = "0";
+        document.querySelector("#ocrCount").textContent = "0";
+        document.querySelector("#confidence").textContent = "0.00";
+        document.querySelector("#decision").textContent = "待检测";
       }
 
       function reset() {
@@ -472,8 +776,16 @@
         preview.removeAttribute("src");
         ready = false;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        mode.textContent = "等待检测";
-        clearStats();
+        mode.textContent = "等待上传图片";
+        clearResult();
+      }
+
+      function downloadResult() {
+        if (!ready) return;
+        const link = document.createElement("a");
+        link.download = "static-carplate-demo-result.png";
+        link.href = canvas.toDataURL("image/png");
+        link.click();
       }
     </script>
   </body>
