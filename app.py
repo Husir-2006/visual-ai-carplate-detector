@@ -63,6 +63,32 @@ def plate_core(value):
     return PROVINCE_RE.sub("", text)
 
 
+def raw_plate_text(value):
+    return str(value or "").upper().strip()
+
+
+def is_low_quality_ocr(value):
+    raw = raw_plate_text(value)
+    clean = plate_core(raw)
+    if not raw or raw in {"???", "未识别"}:
+        return True
+    if "?" in raw:
+        return True
+    if len(clean) < 4:
+        return True
+    if sum(ch.isdigit() for ch in clean) < 2 and not re.search(r"[\u4e00-\u9fff]", raw):
+        return True
+    return False
+
+
+def reliable_suffix_match(candidate, target):
+    cand = plate_core(candidate)
+    tgt = plate_core(target)
+    if len(cand) < 5 or len(tgt) < 5:
+        return False
+    return tgt.endswith(cand) or cand.endswith(tgt)
+
+
 def visual_equal(a, b):
     return a == b or b in AMBIGUOUS.get(a, set())
 
@@ -130,19 +156,31 @@ def correct_plate_with_fleet(result):
         text = plate.get("text")
         if not text or text in {"???", "未识别"}:
             continue
+        if "?" in raw_plate_text(text):
+            plate["rawText"] = text
+            plate["text"] = "未识别"
+            plate["ocrMethod"] = f"{plate.get('ocrMethod', 'OCR')} + 低可信待复核"
+            continue
+        low_quality = is_low_quality_ocr(text)
         best = None
         best_score = 999
         for target in known:
+            if low_quality and not reliable_suffix_match(text, target):
+                continue
             score = similar_plate_score(text, target)
             if score < best_score:
                 best = target
                 best_score = score
-        if best and best_score <= 1.75 and text != best:
+        threshold = 0.35 if low_quality else 1.75
+        if best and best_score <= threshold and text != best:
             plate["rawText"] = text
             plate["text"] = best
             plate["ocrMethod"] = f"{plate.get('ocrMethod', 'OCR')} + 车牌档案校正"
         corrected_numbers.append(plate.get("text"))
-    corrected_numbers = [num for num in corrected_numbers if num and num not in {"???", "未识别"}]
+    corrected_numbers = [
+        num for num in corrected_numbers
+        if num and num not in {"???", "未识别"} and "?" not in raw_plate_text(num)
+    ]
     if corrected_numbers:
         seen = []
         for num in corrected_numbers:
@@ -151,6 +189,11 @@ def correct_plate_with_fleet(result):
         result["summary"]["plateNumbers"] = seen
         result["status"] = "recognized"
         result["message"] = "已识别车牌"
+    else:
+        result["summary"]["plateNumbers"] = []
+        if result.get("plates"):
+            result["status"] = "plate-found"
+            result["message"] = "已检测到车牌，OCR 结果需要人工复核"
     return result
 
 
