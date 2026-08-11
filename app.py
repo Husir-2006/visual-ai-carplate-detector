@@ -128,7 +128,7 @@ def correct_plate_with_fleet(result):
     corrected_numbers = []
     for plate in result.get("plates", []):
         text = plate.get("text")
-        if not text or text == "???":
+        if not text or text in {"???", "未识别"}:
             continue
         best = None
         best_score = 999
@@ -142,7 +142,7 @@ def correct_plate_with_fleet(result):
             plate["text"] = best
             plate["ocrMethod"] = f"{plate.get('ocrMethod', 'OCR')} + 车牌档案校正"
         corrected_numbers.append(plate.get("text"))
-    corrected_numbers = [num for num in corrected_numbers if num and num != "???"]
+    corrected_numbers = [num for num in corrected_numbers if num and num not in {"???", "未识别"}]
     if corrected_numbers:
         seen = []
         for num in corrected_numbers:
