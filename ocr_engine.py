@@ -13,21 +13,21 @@ KNOWN_PLATE_PATTERNS = [
 ]
 
 MODEL_TYPES = {
-    "camry": "轿车 Toyota Camry",
-    "altis": "轿车 Toyota Corolla Altis",
-    "vios": "轿车 Toyota Vios",
+    "camry": "\u8f7f\u8f66 Toyota Camry",
+    "altis": "\u8f7f\u8f66 Toyota Corolla Altis",
+    "vios": "\u8f7f\u8f66 Toyota Vios",
     "avanza": "MPV Toyota Avanza",
     "inova": "MPV Toyota Innova",
     "innova": "MPV Toyota Innova",
     "fortuner": "SUV Toyota Fortuner",
     "rush": "SUV Toyota Rush",
     "calya": "MPV Toyota Calya",
-    "etios": "小型轿车 Toyota Etios",
+    "etios": "\u5c0f\u578b\u8f7f\u8f66 Toyota Etios",
     "kijang": "MPV Toyota Kijang",
     "voxy": "MPV Toyota Voxy",
     "landcruise": "SUV Toyota Land Cruiser",
-    "police": "警用车辆",
-    "taxi": "出租车",
+    "police": "\u8b66\u7528\u8f66\u8f86",
+    "taxi": "\u51fa\u79df\u8f66",
 }
 
 
@@ -66,10 +66,10 @@ class PlateOCR:
                 if text:
                     return self._finalize(text, method, source_truth)
         if source_truth:
-            return {"text": source_truth, "method": "数据集标注校正"}
+            return {"text": source_truth, "method": "\u6570\u636e\u96c6\u6807\u6ce8\u6821\u6b63"}
         if not any((self.paddle, self.easyocr, self.tesseract)):
-            return {"text": "未识别", "method": "未安装 OCR 引擎"}
-        return {"text": "未识别", "method": "OCR 未识别"}
+            return {"text": "\u672a\u8bc6\u522b", "method": "\u672a\u5b89\u88c5 OCR \u5f15\u64ce"}
+        return {"text": "\u672a\u8bc6\u522b", "method": "OCR \u672a\u8bc6\u522b"}
 
     def extract_from_name(self, source_name=""):
         name = Path(source_name or "").stem.upper()
@@ -99,10 +99,10 @@ class PlateOCR:
             x1, y1, x2, y2 = vehicle_box
             ratio = (x2 - x1) / max(1, y2 - y1)
             if ratio >= 2.2:
-                return "轿车/小型乘用车"
+                return "\u8f7f\u8f66/\u5c0f\u578b\u4e58\u7528\u8f66"
             if ratio >= 1.4:
-                return "SUV/MPV 类车辆"
-        return "小型乘用车"
+                return "SUV/MPV \u7c7b\u8f66\u8f86"
+        return "\u5c0f\u578b\u4e58\u7528\u8f66"
 
     def _preprocess_variants(self, plate_crop):
         if plate_crop is None or plate_crop.size == 0:
@@ -159,7 +159,7 @@ class PlateOCR:
 
     def _finalize(self, text, method, source_truth):
         if source_truth and text != source_truth:
-            return {"text": source_truth, "method": f"{method} + 数据集标注校正"}
+            return {"text": source_truth, "method": f"{method} + \u6570\u636e\u96c6\u6807\u6ce8\u6821\u6b63"}
         return {"text": text, "method": method}
 
     def _best_plate_candidate(self, candidates):
@@ -179,13 +179,13 @@ class PlateOCR:
 
     def _clean_text(self, raw):
         text = str(raw).upper()
-        text = text.replace("·", "").replace(".", "").replace("-", "")
-        text = re.sub(r"[^一-龥A-Z0-9]", "", text)
+        text = text.replace("\u00b7", "").replace(".", "").replace("-", "")
+        text = re.sub(r"[^\u4E00-\u9FA5A-Z0-9]", "", text)
         if len(text) < 2:
             return ""
         if sum(ch.isdigit() for ch in text) >= 3:
             text = text.translate(str.maketrans({"O": "0", "I": "1", "L": "1", "S": "5"}))
-        chinese_plate = re.search(r"([一-龥][A-Z][A-Z0-9]{4,6})", text)
+        chinese_plate = re.search(r"([\u4E00-\u9FA5][A-Z][A-Z0-9]{4,6})", text)
         if chinese_plate:
             return chinese_plate.group(1)
         latin_plate = re.search(r"([A-Z0-9]{4,10})", text)

@@ -1,50 +1,18 @@
 [
   {
     "time": "2026-08-10 18:40",
-    "gate": "实拍测试",
-    "plate": "湘DGQ550",
-    "owner": "测试车辆 · 实拍样例",
-    "direction": "入场",
-    "result": "人工校正后登记"
+    "gate": "\u5b9e\u62cd\u6d4b\u8bd5",
+    "plate": "\u6e58DGQ550",
+    "owner": "\u6d4b\u8bd5\u8f66\u8f86 \u00b7 \u5b9e\u62cd\u6837\u4f8b",
+    "direction": "\u5165\u573a",
+    "result": "\u4eba\u5de5\u6821\u6b63\u540e\u767b\u8bb0"
   },
   {
-    "time": "2026-07-19 08:42",
-    "gate": "南门",
-    "plate": "BB8986",
-    "owner": "行政部 · 张明",
-    "direction": "入场",
-    "result": "自动放行"
-  },
-  {
-    "time": "2026-07-19 09:33",
-    "gate": "北门",
-    "plate": "ATE112",
-    "owner": "外协单位 · 施工车辆",
-    "direction": "入场",
-    "result": "人工核验"
-  },
-  {
-    "time": "2026-07-19 10:18",
-    "gate": "西门",
-    "plate": "589222",
-    "owner": "后勤保障部 · 访客车",
-    "direction": "入场",
-    "result": "访客登记"
-  },
-  {
-    "time": "2026-07-19 14:26",
-    "gate": "南门",
-    "plate": "EVSROCK",
-    "owner": "测试车队 · 演示车辆",
-    "direction": "出场",
-    "result": "自动放行"
-  },
-  {
-    "time": "2026-07-18 18:07",
-    "gate": "地库入口",
-    "plate": "XCJ-S77",
-    "owner": "研发中心 · 林珂",
-    "direction": "出场",
-    "result": "自动放行"
+    "time": "2026-08-10 20:15",
+    "gate": "\u5b9e\u62cd\u6d4b\u8bd5",
+    "plate": "\u7ca4A78T3R",
+    "owner": "\u6d4b\u8bd5\u8f66\u8f86 \u00b7 \u591c\u95f4\u6837\u4f8b",
+    "direction": "\u5165\u573a",
+    "result": "\u76f8\u4f3c\u5b57\u7b26\u6821\u6b63\u540e\u767b\u8bb0"
   }
 ]
