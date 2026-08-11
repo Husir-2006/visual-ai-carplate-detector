@@ -89,6 +89,26 @@ def reliable_suffix_match(candidate, target):
     return tgt.endswith(cand) or cand.endswith(tgt)
 
 
+def has_same_chinese_prefix(candidate, target):
+    cand = raw_plate_text(candidate)
+    tgt = raw_plate_text(target)
+    return len(cand) >= 2 and len(tgt) >= 2 and cand[0] == tgt[0] and cand[1] == tgt[1]
+
+
+def safe_auto_match(candidate, target, score, low_quality):
+    if low_quality:
+        return score <= 0.35
+    cand = plate_core(candidate)
+    tgt = plate_core(target)
+    if cand == tgt:
+        return True
+    if reliable_suffix_match(candidate, target) and score <= 0.35:
+        return True
+    if has_same_chinese_prefix(candidate, target) and abs(len(cand) - len(tgt)) <= 1:
+        return score <= 1.05
+    return score <= 1.25
+
+
 def visual_equal(a, b):
     return a == b or b in AMBIGUOUS.get(a, set())
 
@@ -135,6 +155,9 @@ def similar_plate_score(candidate, target):
 
     score = edit_distance_score(cand, tgt)
 
+    if has_same_chinese_prefix(candidate, target):
+        score = min(score, edit_distance_score(raw_plate_text(candidate)[1:], raw_plate_text(target)[1:]) - 0.25)
+
     # OCR often drops the province/city prefix on Chinese blue plates.
     for start in range(1, min(3, len(tgt)) + 1):
         tail = tgt[start:]
@@ -171,8 +194,7 @@ def correct_plate_with_fleet(result):
             if score < best_score:
                 best = target
                 best_score = score
-        threshold = 0.35 if low_quality else 1.75
-        if best and best_score <= threshold and text != best:
+        if best and safe_auto_match(text, best, best_score, low_quality) and text != best:
             plate["rawText"] = text
             plate["text"] = best
             plate["ocrMethod"] = f"{plate.get('ocrMethod', 'OCR')} + 车牌档案校正"
