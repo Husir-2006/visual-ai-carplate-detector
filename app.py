@@ -109,6 +109,20 @@ def safe_auto_match(candidate, target, score, low_quality):
     return score <= 1.25
 
 
+def unique_plate_numbers(numbers):
+    clean = []
+    for value in numbers:
+        text = raw_plate_text(value)
+        if not text or text in {"???", "未识别"} or "?" in text:
+            continue
+        if any(text != old and text in old for old in clean):
+            continue
+        clean = [old for old in clean if not (old != text and old in text)]
+        if text not in clean:
+            clean.append(text)
+    return clean
+
+
 def visual_equal(a, b):
     return a == b or b in AMBIGUOUS.get(a, set())
 
@@ -204,11 +218,7 @@ def correct_plate_with_fleet(result):
         if num and num not in {"???", "未识别"} and "?" not in raw_plate_text(num)
     ]
     if corrected_numbers:
-        seen = []
-        for num in corrected_numbers:
-            if num not in seen:
-                seen.append(num)
-        result["summary"]["plateNumbers"] = seen
+        result["summary"]["plateNumbers"] = unique_plate_numbers(corrected_numbers)
         result["status"] = "recognized"
         result["message"] = "已识别车牌"
     else:

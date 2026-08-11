@@ -10,6 +10,9 @@ __pycache__/
 *.err
 server*.log
 server*.err
+runs/
+yolo*.pt
+!models/yolov8_plate.pt
 
 # local packaged copies
 submit_package/
