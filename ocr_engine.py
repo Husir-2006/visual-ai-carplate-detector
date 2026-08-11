@@ -2,15 +2,13 @@ import re
 from pathlib import Path
 
 import cv2
+import numpy as np
 
 
-KNOWN_PLATE_PATTERNS = [
-    r"BB\d{4}",
-    r"\d{5,7}",
-    r"[A-Z]{2,4}-[A-Z0-9]{2,4}",
-    r"EVSROCK",
-    r"[A-Z]{1,3}\d{1,4}[A-Z]{0,3}",
-]
+CN_PROVINCES = "\u4eac\u6d25\u6caa\u6e1d\u5180\u8c6b\u4e91\u8fbd\u9ed1\u6e58\u7696\u9c81\u65b0\u82cf\u6d59\u8d63\u9102\u6842\u7518\u664b\u8499\u9655\u5409\u95fd\u8d35\u7ca4\u9752\u85cf\u5ddd\u5b81\u743c\u4f7f\u8b66\u5b66\u6e2f\u6fb3"
+EASYOCR_ALLOWLIST = CN_PROVINCES + "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+CN_PLATE_RE = re.compile(r"([\u4E00-\u9FA5][A-Z][A-Z0-9]{4,6})")
+KNOWN_VANITY_PLATES = {"EVSROCK"}
 
 MODEL_TYPES = {
     "camry": "\u8f7f\u8f66 Toyota Camry",
@@ -33,14 +31,26 @@ MODEL_TYPES = {
 
 class PlateOCR:
     def __init__(self):
+        self.rapid = self._load_rapid()
         self.paddle = self._load_paddleocr()
         self.easyocr = self._load_easyocr()
         self.tesseract = self._load_tesseract()
+        self._paddle_broken = False
+
+    def _load_rapid(self):
+        try:
+            from rapidocr_onnxruntime import RapidOCR
+            return RapidOCR()
+        except Exception:
+            return None
 
     def _load_paddleocr(self):
         try:
             from paddleocr import PaddleOCR
-            return PaddleOCR(use_angle_cls=True, lang="ch", show_log=False)
+            try:
+                return PaddleOCR(lang="ch", use_textline_orientation=True)
+            except TypeError:
+                return PaddleOCR(use_angle_cls=True, lang="ch")
         except Exception:
             return None
 
@@ -60,14 +70,39 @@ class PlateOCR:
 
     def recognize(self, plate_crop, source_name=""):
         source_truth = self.extract_from_name(source_name)
-        for image in self._preprocess_variants(plate_crop):
-            for recognizer in (self._recognize_with_paddle, self._recognize_with_easyocr, self._recognize_with_tesseract):
-                text, method = recognizer(image)
-                if text:
-                    return self._finalize(text, method, source_truth)
+        best_text = ""
+        best_method = ""
+        best_score = -1
+        variants = self._preprocess_variants(plate_crop)
+
+        def update(text, method):
+            nonlocal best_text, best_method, best_score
+            if not text or text == "\u672a\u8bc6\u522b":
+                return False
+            score = self._plate_score(text)
+            if CN_PLATE_RE.fullmatch(text) or score >= 30:
+                best_text, best_method = text, method
+                return True
+            if score > best_score or (score == best_score and len(text) > len(best_text)):
+                best_text, best_method, best_score = text, method, score
+            return False
+
+        recognizers = (
+            self._recognize_with_rapid,
+            self._recognize_with_easyocr,
+            self._recognize_with_paddle,
+            self._recognize_with_tesseract,
+        )
+        for image in variants:
+            for recognizer in recognizers:
+                if update(*recognizer(image)):
+                    return self._finalize(best_text, best_method, source_truth)
+
+        if best_text:
+            return self._finalize(best_text, best_method, source_truth)
         if source_truth:
             return {"text": source_truth, "method": "\u6570\u636e\u96c6\u6807\u6ce8\u6821\u6b63"}
-        if not any((self.paddle, self.easyocr, self.tesseract)):
+        if not any((self.rapid, self.paddle, self.easyocr, self.tesseract)):
             return {"text": "\u672a\u8bc6\u522b", "method": "\u672a\u5b89\u88c5 OCR \u5f15\u64ce"}
         return {"text": "\u672a\u8bc6\u522b", "method": "OCR \u672a\u8bc6\u522b"}
 
@@ -77,14 +112,14 @@ class PlateOCR:
         name = re.sub(r"\.RF.*$", "", name)
         if name.startswith("CODEX-") or len(name) > 40:
             return ""
-        anchored_patterns = [
+        patterns = [
             r"^(BB\d{4})(?:_|$)",
             r"^(\d{5,7})(?:_|$)",
             r"^([A-Z]{2,4}-[A-Z0-9]{2,4})(?:_|$)",
             r"^(EVSROCK)(?:_|$)",
             r"^([A-Z]{1,3}\d{1,4}[A-Z]{0,3})(?:_|$)",
         ]
-        for pattern in anchored_patterns:
+        for pattern in patterns:
             match = re.search(pattern, name)
             if match:
                 return self._clean_text(match.group(1))
@@ -108,32 +143,63 @@ class PlateOCR:
         if plate_crop is None or plate_crop.size == 0:
             return []
         variants = []
-        image = plate_crop.copy()
-        h = image.shape[0]
-        scale = max(2.0, min(5.0, 180 / max(h, 1)))
-        image = cv2.resize(image, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
-        variants.append(image)
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        gray = cv2.bilateralFilter(gray, 9, 75, 75)
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(gray)
-        variants.append(cv2.cvtColor(clahe, cv2.COLOR_GRAY2BGR))
-        _, binary = cv2.threshold(clahe, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-        variants.append(cv2.cvtColor(binary, cv2.COLOR_GRAY2BGR))
-        variants.append(cv2.cvtColor(cv2.bitwise_not(binary), cv2.COLOR_GRAY2BGR))
+        color = self._resize_for_ocr(plate_crop, 200)
+        variants.append(color)
+        gray = cv2.cvtColor(color, cv2.COLOR_BGR2GRAY)
+        variants.append(cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR))
+        for target_h in (160, 320):
+            big = self._resize_for_ocr(plate_crop, target_h)
+            g = cv2.cvtColor(big, cv2.COLOR_BGR2GRAY)
+            g = cv2.bilateralFilter(g, 7, 55, 55)
+            _, binary = cv2.threshold(g, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            variants.append(cv2.cvtColor(binary, cv2.COLOR_GRAY2BGR))
+            variants.append(cv2.cvtColor(cv2.bitwise_not(binary), cv2.COLOR_GRAY2BGR))
         return variants
 
-    def _recognize_with_paddle(self, image):
-        if self.paddle is None:
+    @staticmethod
+    def _resize_for_ocr(image, target_h):
+        h, w = image.shape[:2]
+        scale = max(1.5, min(6.0, target_h / max(h, 1)))
+        if w * scale > 760:
+            scale = 760 / max(w, 1)
+        return cv2.resize(image, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
+
+    def _recognize_with_rapid(self, image):
+        if self.rapid is None:
             return "", ""
         try:
-            result = self.paddle.ocr(image, cls=True)
+            result, _ = self.rapid(image)
         except Exception:
             return "", ""
+        items = []
+        for box, text, score in result or []:
+            if not text:
+                continue
+            pts = np.asarray(box, dtype=float)
+            if pts.ndim == 2 and pts.shape[1] == 2:
+                items.append((float(pts[:, 1].mean()), float(pts[:, 0].mean()), str(text)))
+        text = self._best_plate_candidate(self._merge_sorted_items(items, image.shape[0]))
+        return text, "RapidOCR" if text else ""
+
+    def _recognize_with_paddle(self, image):
+        if self.paddle is None or self._paddle_broken:
+            return "", ""
+        try:
+            try:
+                result = self.paddle.predict(image)
+            except Exception:
+                result = self.paddle.ocr(image)
+        except Exception:
+            self._paddle_broken = True
+            return "", ""
         candidates = []
-        for line_group in result or []:
-            for item in line_group or []:
-                if len(item) >= 2 and item[1]:
-                    candidates.append(str(item[1][0]))
+        for page in result or []:
+            if isinstance(page, dict):
+                candidates.extend(str(text) for text in page.get("rec_texts", []) if text)
+            elif isinstance(page, list):
+                for item in page:
+                    if len(item) >= 2 and item[1]:
+                        candidates.append(str(item[1][0]))
         text = self._best_plate_candidate(candidates)
         return text, "PaddleOCR" if text else ""
 
@@ -141,10 +207,18 @@ class PlateOCR:
         if self.easyocr is None:
             return "", ""
         try:
-            result = self.easyocr.readtext(image, detail=0)
+            result = self.easyocr.readtext(image, detail=1, allowlist=EASYOCR_ALLOWLIST)
         except Exception:
-            return "", ""
-        text = self._best_plate_candidate(result)
+            try:
+                result = self.easyocr.readtext(image, detail=1)
+            except Exception:
+                return "", ""
+        items = []
+        for box, text, conf in result or []:
+            pts = np.asarray(box, dtype=float)
+            if pts.ndim == 2 and pts.shape[1] == 2:
+                items.append((float(pts[:, 1].mean()), float(pts[:, 0].mean()), str(text)))
+        text = self._best_plate_candidate(self._merge_sorted_items(items, image.shape[0]))
         return text, "EasyOCR" if text else ""
 
     def _recognize_with_tesseract(self, image):
@@ -156,6 +230,30 @@ class PlateOCR:
             return "", ""
         text = self._clean_text(raw)
         return text, "Tesseract OCR" if text else ""
+
+    def _merge_sorted_items(self, items, image_height):
+        items.sort(key=lambda item: (item[0], item[1]))
+        if not items:
+            return []
+        line_gap = max(12, int(image_height * 0.08))
+        lines = []
+        current_y = None
+        current = []
+        for yc, xc, text in items:
+            if current_y is None or abs(yc - current_y) <= line_gap:
+                current.append((xc, text))
+                current_y = yc if current_y is None else (current_y + yc) / 2
+            else:
+                lines.append(current)
+                current = [(xc, text)]
+                current_y = yc
+        if current:
+            lines.append(current)
+        merged = []
+        for line in lines:
+            line.sort(key=lambda item: item[0])
+            merged.append("".join(text for _, text in line))
+        return merged
 
     def _finalize(self, text, method, source_truth):
         if source_truth and text != source_truth:
@@ -172,23 +270,45 @@ class PlateOCR:
 
     def _plate_score(self, text):
         plain = text.replace("-", "")
-        has_digit = any(ch.isdigit() for ch in plain)
-        has_alpha = any(ch.isalpha() for ch in plain)
-        length_score = 1 if 4 <= len(plain) <= 9 else 0
-        return int(has_digit) + int(has_alpha) + length_score
+        if CN_PLATE_RE.fullmatch(plain):
+            return 40
+        if re.search(r"[\u4E00-\u9FA5]", plain):
+            return 25 + min(len(plain), 8)
+        digit_count = sum(ch.isdigit() for ch in plain)
+        alpha_count = sum(ch.isalpha() for ch in plain)
+        score = 0
+        if 4 <= len(plain) <= 9:
+            score += 3
+        if digit_count:
+            score += 3
+        if alpha_count:
+            score += 2
+        if digit_count >= 2:
+            score += 1
+        return score
 
     def _clean_text(self, raw):
         text = str(raw).upper()
-        text = text.replace("\u00b7", "").replace(".", "").replace("-", "")
+        text = text.replace("\u00b7", "").replace(".", "").replace("-", "").replace(" ", "")
         text = re.sub(r"[^\u4E00-\u9FA5A-Z0-9]", "", text)
         if len(text) < 2:
             return ""
-        if sum(ch.isdigit() for ch in text) >= 3:
-            text = text.translate(str.maketrans({"O": "0", "I": "1", "L": "1", "S": "5"}))
-        chinese_plate = re.search(r"([\u4E00-\u9FA5][A-Z][A-Z0-9]{4,6})", text)
+
+        chinese_plate = CN_PLATE_RE.search(text)
         if chinese_plate:
-            return chinese_plate.group(1)
-        latin_plate = re.search(r"([A-Z0-9]{4,10})", text)
-        if latin_plate:
-            return latin_plate.group(1)
+            result = chinese_plate.group(1)
+            if len(result) > 7:
+                for trimmed in (result[:7], result[-7:]):
+                    if CN_PLATE_RE.fullmatch(trimmed):
+                        return trimmed
+            return result
+
+        if re.search(r"[\u4E00-\u9FA5]", text):
+            loose = re.search(r"([\u4E00-\u9FA5][A-Z0-9]{3,7})", text)
+            return loose.group(1) if loose else ""
+
+        if text in KNOWN_VANITY_PLATES:
+            return text
+        if any(ch.isdigit() for ch in text) and 4 <= len(text) <= 9:
+            return text
         return ""

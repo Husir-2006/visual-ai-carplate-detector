@@ -95,11 +95,19 @@ class CampusVehicleDetector:
             plates = [{k: d[k] for k in ("label", "confidence", "box")} for d in model_detections if d["type"] == "plate"]
             plates.extend(self._detect_plates(image, vehicles))
         plates = self._dedupe(plates, 0.45)[:8]
-        for plate in plates:
-            crop = self.crop(image, plate["box"])
+        raw_plates = plates
+        for plate in plates[:4]:
+            crop = self.crop(image, self._expand_box(plate["box"], image.shape))
             ocr_result = self.ocr.recognize(crop, source_name)
             plate["text"] = ocr_result["text"]
             plate["ocrMethod"] = ocr_result["method"]
+
+        filtered_plates = [
+            plate for plate in plates
+            if (plate.get("text") and plate.get("text") != "未识别")
+            or plate.get("confidence", 0) >= 0.78
+        ]
+        plates = filtered_plates if filtered_plates else raw_plates
 
         if plates and not self._any_vehicle_contains_plate(vehicles, plates):
             h, w = image.shape[:2]
@@ -422,6 +430,19 @@ class CampusVehicleDetector:
     def crop(self, image, box):
         x1, y1, x2, y2 = box
         return image[max(0, y1):max(0, y2), max(0, x1):max(0, x2)]
+
+    def _expand_box(self, box, image_shape, fx=0.14, fy=0.10):
+        x1, y1, x2, y2 = box
+        height, width = image_shape[:2]
+        w, h = max(1, x2 - x1), max(1, y2 - y1)
+        pad_x = max(5, int(w * fx))
+        pad_y = max(3, int(h * fy))
+        return [
+            max(0, x1 - pad_x),
+            max(0, y1 - pad_y),
+            min(width - 1, x2 + pad_x),
+            min(height - 1, y2 + pad_y),
+        ]
 
     def _draw_box(self, image, item, color):
         x1, y1, x2, y2 = item["box"]

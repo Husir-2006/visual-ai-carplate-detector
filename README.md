@@ -144,7 +144,7 @@ models/yolov8_plate.pt 或 models/best.pt
 OCR 优先级：
 
 ```text
-PaddleOCR > EasyOCR > Tesseract > 数据集文件名标注兜底
+RapidOCR > PaddleOCR > EasyOCR > Tesseract > 数据集文件名标注兜底
 ```
 
 车辆档案校正：
