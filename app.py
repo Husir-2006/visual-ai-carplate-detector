@@ -25,13 +25,19 @@ AMBIGUOUS = {
     "O": {"0", "D", "Q"},
     "D": {"0", "O", "Q"},
     "Q": {"0", "O", "D"},
-    "1": {"I", "L"},
-    "I": {"1", "L"},
-    "L": {"1", "I"},
+    "1": {"I", "L", "T"},
+    "I": {"1", "L", "T"},
+    "L": {"1", "I", "T"},
+    "T": {"1", "I", "L", "7"},
+    "7": {"T"},
     "5": {"S"},
     "S": {"5"},
     "8": {"B"},
     "B": {"8"},
+    "2": {"Z"},
+    "Z": {"2"},
+    "6": {"G"},
+    "G": {"6"},
 }
 
 app = Flask(__name__)
@@ -57,23 +63,62 @@ def plate_core(value):
     return PROVINCE_RE.sub("", text)
 
 
+def visual_equal(a, b):
+    return a == b or b in AMBIGUOUS.get(a, set())
+
+
+def edit_distance_score(candidate, target):
+    cand = plate_core(candidate)
+    tgt = plate_core(target)
+    if not cand or not tgt:
+        return 999
+    rows = len(cand) + 1
+    cols = len(tgt) + 1
+    dp = [[0.0] * cols for _ in range(rows)]
+    for i in range(1, rows):
+        dp[i][0] = dp[i - 1][0] + 1.0
+    for j in range(1, cols):
+        dp[0][j] = dp[0][j - 1] + 1.0
+    for i in range(1, rows):
+        for j in range(1, cols):
+            if cand[i - 1] == tgt[j - 1]:
+                sub = 0.0
+            elif visual_equal(cand[i - 1], tgt[j - 1]):
+                sub = 0.35
+            else:
+                sub = 1.0
+            dp[i][j] = min(
+                dp[i - 1][j] + 1.0,
+                dp[i][j - 1] + 1.0,
+                dp[i - 1][j - 1] + sub,
+            )
+    return dp[-1][-1]
+
+
 def similar_plate_score(candidate, target):
     cand = plate_core(candidate)
     tgt = plate_core(target)
     if not cand or not tgt:
         return 999
-    if cand == tgt or cand.endswith(tgt) or tgt.endswith(cand):
+    if cand == tgt:
         return 0
-    if len(cand) != len(tgt):
-        return 999
-    score = 0
-    for a, b in zip(cand, tgt):
-        if a == b:
-            continue
-        if b in AMBIGUOUS.get(a, set()):
-            score += 1
-            continue
-        return 999
+    if len(cand) >= 4 and tgt.endswith(cand):
+        return 0.15
+    if len(cand) >= 5 and cand.endswith(tgt):
+        return 0.25
+
+    score = edit_distance_score(cand, tgt)
+
+    # OCR often drops the province/city prefix on Chinese blue plates.
+    for start in range(1, min(3, len(tgt)) + 1):
+        tail = tgt[start:]
+        if len(tail) >= 4:
+            score = min(score, 0.25 + edit_distance_score(cand, tail))
+
+    # If the OCR result is a damaged suffix, still allow archive correction.
+    for tail_len in range(4, min(len(cand), len(tgt)) + 1):
+        score = min(score, 0.35 + edit_distance_score(cand[-tail_len:], tgt[-tail_len:]))
+
     return score
 
 
@@ -92,10 +137,10 @@ def correct_plate_with_fleet(result):
             if score < best_score:
                 best = target
                 best_score = score
-        if best and best_score <= 1 and text != best:
+        if best and best_score <= 1.75 and text != best:
             plate["rawText"] = text
             plate["text"] = best
-            plate["ocrMethod"] = f"{plate.get('ocrMethod', 'OCR')} + ????????"
+            plate["ocrMethod"] = f"{plate.get('ocrMethod', 'OCR')} + 车牌档案校正"
         corrected_numbers.append(plate.get("text"))
     corrected_numbers = [num for num in corrected_numbers if num and num != "???"]
     if corrected_numbers:
@@ -105,7 +150,7 @@ def correct_plate_with_fleet(result):
                 seen.append(num)
         result["summary"]["plateNumbers"] = seen
         result["status"] = "recognized"
-        result["message"] = "??????????"
+        result["message"] = "已识别车牌"
     return result
 
 
@@ -138,9 +183,9 @@ def settings():
 def detect():
     image_file = request.files.get("image")
     if image_file is None or image_file.filename == "":
-        return jsonify({"error": "??????????"}), 400
+        return jsonify({"error": "请上传车辆图片"}), 400
     if not allowed_file(image_file.filename):
-        return jsonify({"error": "??? JPG?PNG?BMP?WEBP ??"}), 400
+        return jsonify({"error": "仅支持 JPG、PNG、BMP、WEBP 图片"}), 400
 
     UPLOAD_DIR.mkdir(exist_ok=True)
     OUTPUT_DIR.mkdir(exist_ok=True)
@@ -154,7 +199,7 @@ def detect():
 
     image = cv2.imdecode(np.fromfile(str(input_path), dtype=np.uint8), cv2.IMREAD_COLOR)
     if image is None:
-        return jsonify({"error": "???????????????"}), 400
+        return jsonify({"error": "图片读取失败，请换一张清晰图片"}), 400
 
     result = correct_plate_with_fleet(detector.detect(image, original_name))
     annotated = detector.draw_result(image.copy(), result)
@@ -171,7 +216,7 @@ def detect():
         plate_images.append(f"/outputs/{plate_name}")
 
     vehicle_images = []
-    vehicle_source = result["vehicles"] or [{"box": [0, 0, image.shape[1], image.shape[0]], "label": "?????"}]
+    vehicle_source = result["vehicles"] or [{"box": [0, 0, image.shape[1], image.shape[0]], "label": "整车图"}]
     for index, vehicle in enumerate(vehicle_source[:4], start=1):
         crop = detector.crop(image, vehicle["box"])
         if crop.size == 0:

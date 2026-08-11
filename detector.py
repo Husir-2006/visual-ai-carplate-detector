@@ -111,9 +111,9 @@ class CampusVehicleDetector:
         plate_numbers = self._unique_plate_numbers(plates)
         status = "recognized" if plate_numbers else ("plate-found" if plates else "no-plate")
         message = {
-            "recognized": "??????????",
-            "plate-found": "??????? OCR ????????",
-            "no-plate": "?????????????????????????",
+            "recognized": "已识别车牌",
+            "plate-found": "已检测到车牌，OCR 结果需要人工复核",
+            "no-plate": "未检测到清晰车牌，请换更近或更清晰的图片",
         }[status]
 
         return {
@@ -312,7 +312,7 @@ class CampusVehicleDetector:
             for x, y, w, h in detected:
                 box = [int(x), int(y), int(x + w), int(y + h)]
                 if self._plate_shape_ok(box):
-                    plates.append({"label": "??", "confidence": 0.78, "box": box})
+                    plates.append({"label": "车牌", "confidence": 0.78, "box": box})
 
         for rx1, ry1, rx2, ry2, weight in self._plate_search_regions(image, vehicles):
             roi = image[ry1:ry2, rx1:rx2]
@@ -320,7 +320,7 @@ class CampusVehicleDetector:
                 x1, y1, x2, y2 = box
                 full_box = [rx1 + x1, ry1 + y1, rx1 + x2, ry1 + y2]
                 if self._plate_shape_ok(full_box):
-                    plates.append({"label": "??", "confidence": round(min(0.95, confidence * weight), 3), "box": full_box})
+                    plates.append({"label": "车牌", "confidence": round(min(0.95, confidence * weight), 3), "box": full_box})
         return self._dedupe(plates, 0.35)[:8]
 
 
@@ -353,7 +353,7 @@ class CampusVehicleDetector:
             pad_y = int(h * 0.18)
             box = [max(0, x - pad_x), max(0, y - pad_y), min(width - 1, x + w + pad_x), min(height - 1, y + h + pad_y)]
             confidence = round(min(0.96, 0.72 + fill * 0.22), 3)
-            candidates.append({"label": "??", "confidence": confidence, "box": box})
+            candidates.append({"label": "车牌", "confidence": confidence, "box": box})
         candidates.sort(key=lambda item: (item["box"][2] - item["box"][0]) * (item["box"][3] - item["box"][1]), reverse=True)
         return candidates[:4]
 

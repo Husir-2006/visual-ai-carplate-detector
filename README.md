@@ -1,8 +1,18 @@
 # 企业车牌识别与车辆管理系统
 
-本项目是 P402019B 创新应用综合实训课程作业，面向校园/企业门岗车辆通行管理场景。系统支持上传车辆图片，自动检测车辆与车牌区域，识别车牌号，并根据车牌号查询车辆档案、通行记录和黑白名单信息。
+本项目是 P402019B 创新应用综合实训课程大作业，面向校园/企业门岗车辆通行管理场景。系统支持上传车辆图片，自动检测车辆与车牌区域，识别车牌号，并根据车牌号查询车辆档案、通行记录和黑白名单信息。
 
-## 一键运行
+## 重要说明：为什么国内车牌识别会不稳定
+
+早期演示模型主要使用国外/印尼车牌数据训练，车牌颜色、字符结构、拍摄距离和中文省份简称都与中国蓝牌差异很大。因此在真实国内车牌上容易出现这些问题：
+
+- 省份汉字丢失，例如 `粤A78T3R` 被识别成 `A78T3R` 或 `478T3R`。
+- 相似字符混淆，例如 `A/4`、`B/8`、`T/1`、`S/5`。
+- 车牌检测框偏移，导致 OCR 读到保险杠、车标或背景文字。
+
+当前版本已经增加了国内蓝牌的后处理规则和车辆档案模糊匹配，但更根本的改进方式是使用国内车牌数据集重新训练检测模型。
+
+## 一键运行系统
 
 双击：
 
@@ -16,10 +26,90 @@
 http://127.0.0.1:5000
 ```
 
-首次运行如缺少依赖，先安装：
+首次运行如果缺少基础依赖：
 
 ```bash
 pip install -r requirements.txt
+```
+
+如需 PaddleOCR / EasyOCR / YOLOv8 训练能力：
+
+```bash
+pip install -r requirements-ai.txt
+```
+
+## 推荐国内数据集
+
+优先使用 CCPD 中国车牌数据集：
+
+- CCPD2019：规模大，适合蓝牌检测和复杂场景训练。
+- CCPD2020：体积较小，包含更多国内新场景，适合课程项目先快速训练。
+- 数据源：Zenodo CCPD archive，记录号 `15647076`。
+- 官方项目：`https://github.com/detectRecog/CCPD`
+
+原始数据集较大，不放进最终提交包，只在报告中注明来源。
+
+## 下载并转换 CCPD
+
+推荐先下载 CCPD2020，约 0.85GB：
+
+```bash
+python download_ccpd_dataset.py --list
+python download_ccpd_dataset.py --contains CCPD2020 --target datasets/CCPD
+```
+
+下载完成后，把 `datasets/CCPD/CCPD2020.zip` 解压到：
+
+```text
+datasets/CCPD/CCPD2020
+```
+
+转换为 YOLOv8 格式：
+
+```bash
+python prepare_ccpd_dataset.py --source datasets/CCPD --output datasets/ccpd_yolo --limit 50000 --clean
+```
+
+输出结构：
+
+```text
+datasets/ccpd_yolo/
+  train/images
+  train/labels
+  valid/images
+  valid/labels
+  test/images
+  test/labels
+  data.yaml
+  ocr_labels.csv
+```
+
+其中 `ocr_labels.csv` 保存了从 CCPD 文件名解析出来的真实车牌号，后续如果要继续训练字符识别模型，可以直接复用。
+
+## 重新训练国内车牌检测模型
+
+CPU 训练：
+
+```bash
+python train_yolov8_plate.py --data datasets/ccpd_yolo/data.yaml --epochs 80 --imgsz 640 --batch 16 --device cpu --output models/yolov8_plate.pt
+```
+
+有 NVIDIA 显卡时建议改成：
+
+```bash
+python train_yolov8_plate.py --data datasets/ccpd_yolo/data.yaml --epochs 100 --imgsz 640 --batch 16 --device 0 --output models/yolov8_plate.pt
+```
+
+也可以直接双击：
+
+```text
+训练国内车牌YOLOv8模型.bat
+```
+
+训练完成后重启 Flask 系统，程序会优先加载：
+
+```text
+models/yolov8_plate.pt
 ```
 
 ## 系统模块
@@ -27,7 +117,7 @@ pip install -r requirements.txt
 非静态版前端包含 5 个模块：
 
 - 识别工作台：上传图片，返回识别图、车辆图、车牌裁剪图和目标明细。
-- 车辆档案：查看登记车辆、车主部门、权限和最近通行信息。
+- 车辆档案：查看登记车辆、车主/部门、权限和最近通行信息。
 - 通行记录：查看门岗通行流水。
 - 黑白名单：查看自动放行车辆和需要人工复核车辆。
 - 系统设置：查看当前模型优先级、OCR 引擎和识别阈值。
@@ -57,81 +147,23 @@ OCR 优先级：
 PaddleOCR > EasyOCR > Tesseract > 数据集文件名标注兜底
 ```
 
-当前仓库保留了课程演示用模型：
+车辆档案校正：
 
 ```text
-models/tiny_plate_detector.pt
+OCR 原始结果
+> 清洗符号和噪声
+> 中国蓝牌结构校验
+> 近似字符纠错
+> 与车辆档案库模糊匹配
 ```
 
-如果训练出更高准确率模型，把 `best.pt` 放到 `models/best.pt` 或 `models/yolov8_plate.pt`，重启系统即可自动优先加载。
+## 最终材料
 
-## 推荐训练方式
-
-基础依赖：
-
-```bash
-pip install -r requirements.txt
-```
-
-增强训练和 OCR 依赖：
-
-```bash
-pip install -r requirements-ai.txt
-```
-
-合并数据集：
-
-```bash
-python prepare_combined_dataset.py --base datasets/anpr-model-1 --extra datasets --output datasets/combined
-```
-
-推荐训练 YOLOv8：
-
-```bash
-python train_yolov8_plate.py --data datasets/combined/data.yaml --epochs 80 --imgsz 640 --batch 16
-```
-
-训练完成后脚本会尝试把最佳模型复制到：
-
-```text
-models/yolov8_plate.pt
-```
-
-CPU 训练会比较慢；如果电脑没有 NVIDIA 显卡，可以在 Kaggle 或 Colab 训练，再把 `best.pt` 下载回来放进 `models/`。
-
-## 数据集来源
-
-原始数据集较大，按课程要求不放入最终提交包，只在报告中注明来源：
-
-1. Zenodo / Roboflow Universe：Indonesian License Plate Detection Dataset，DOI：10.5281/zenodo.15605718
-2. Roboflow Public：License Plates Dataset，YOLO v5 PyTorch 格式
-3. Kaggle：Automatic License Plate Recognition (ALPR) Dataset
-
-本地数据集目录：
-
-```text
-datasets/
-```
-
-最终提交包不会包含该目录。
-
-## 项目结构
-
-详细文件说明见：
-
-```text
-docs/project_structure.md
-```
-
-## 课程材料
-
-最终材料位于：
+课程提交材料位于：
 
 ```text
 deliverables/
 ```
-
-包含课程报告、陈述 PPT、功能演示视频、开发日志与沟通记录、三份个人实习实训日志、运行截图和提交清单。
 
 最终压缩包：
 
@@ -139,4 +171,4 @@ deliverables/
 24281098.zip
 ```
 
-该压缩包按组长学号命名，已排除原始数据集、运行缓存、旧包和临时预览文件。
+压缩包按组长学号命名，已排除原始数据集、运行缓存、旧包和临时预览文件。
