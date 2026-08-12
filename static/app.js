@@ -115,7 +115,7 @@ async function fetchJson(url, fallback) {
 
 function renderAllData() {
   registeredCount.textContent = fleetRecords.length;
-  todayPassCount.textContent = passRecords.filter((record) => record.time?.includes("2026-07-19")).length || passRecords.length;
+  todayPassCount.textContent = countTodayRecords();
   renderFleetTable(fleetRecords, fleetTable);
   renderFleetTable(fleetRecords, fleetViewTable, true);
   renderPassRecords(passRecords);
@@ -149,6 +149,7 @@ async function detectImage() {
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "识别失败");
     renderResult(data);
+    await refreshPassRecords();
   } catch (error) {
     mode.textContent = error.message;
   } finally {
@@ -199,6 +200,10 @@ function renderResult(data) {
   renderDetectionList(data);
   renderGallery(vehicleGallery, data.vehicleImages || [], "车辆返回图", "暂无车辆图片");
   renderGallery(plateGallery, data.plateImages || [], "车牌裁剪结果", "暂无车牌区域");
+
+  if (data.passRecord) {
+    matchHint.textContent = `${matchHint.textContent}，已写入通行记录`;
+  }
 }
 
 function lookupVehicle(plate, manual = false, detectedType = "") {
@@ -299,6 +304,12 @@ function renderPassRecords(records) {
   `).join("");
 }
 
+async function refreshPassRecords() {
+  passRecords = await fetchJson("/api/pass-records", passRecords);
+  todayPassCount.textContent = countTodayRecords();
+  renderPassRecords(filterRecords(recordSearch.value));
+}
+
 function renderAccessLists() {
   document.querySelector("#whiteList").innerHTML = renderCards(accessLists.white || [], "ok");
   document.querySelector("#blackList").innerHTML = renderCards(accessLists.black || [], "danger");
@@ -361,6 +372,17 @@ function filterRecords(keyword) {
 
 function normalize(value) {
   return String(value || "").trim().toUpperCase().replace(/\s+/g, "");
+}
+
+function countTodayRecords() {
+  const now = new Date();
+  const today = [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, "0"),
+    String(now.getDate()).padStart(2, "0"),
+  ].join("-");
+  const count = passRecords.filter((record) => String(record.time || "").startsWith(today)).length;
+  return count || passRecords.length;
 }
 
 function statusToClass(status) {

@@ -1,5 +1,6 @@
 from pathlib import Path
 from uuid import uuid4
+from datetime import datetime
 import json
 import os
 import re
@@ -52,6 +53,12 @@ def read_json(name, fallback):
         return json.loads(path.read_text(encoding="utf-8-sig"))
     except Exception:
         return fallback
+
+
+def write_json(name, data):
+    DATA_DIR.mkdir(exist_ok=True)
+    path = DATA_DIR / name
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def allowed_file(filename):
@@ -121,6 +128,44 @@ def unique_plate_numbers(numbers):
         if text not in clean:
             clean.append(text)
     return clean
+
+
+def find_fleet_record(plate_number):
+    normalized = plate_core(plate_number)
+    if not normalized:
+        return None
+    for item in read_json("fleet.json", []):
+        if plate_core(item.get("plate")) == normalized:
+            return item
+    return None
+
+
+def append_pass_record(result):
+    numbers = result.get("summary", {}).get("plateNumbers", [])
+    plate_number = numbers[0] if numbers else ""
+    if not plate_number:
+        return None
+
+    fleet_record = find_fleet_record(plate_number)
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    owner = fleet_record.get("owner") if fleet_record else "未登记车辆"
+    permit = fleet_record.get("permit") if fleet_record else "待人工登记"
+    status = fleet_record.get("status") if fleet_record else "未授权"
+    result_text = "自动放行" if status == "正常" else "识别后进入人工复核"
+
+    record = {
+        "time": now,
+        "gate": "AI识别工作台",
+        "plate": plate_number,
+        "owner": owner,
+        "direction": "入场",
+        "result": f"{result_text} · {permit}",
+    }
+
+    records = read_json("pass_records.json", [])
+    records.insert(0, record)
+    write_json("pass_records.json", records[:200])
+    return record
 
 
 def visual_equal(a, b):
@@ -301,6 +346,8 @@ def detect():
         cv2.imencode(".jpg", crop)[1].tofile(str(vehicle_path))
         vehicle_images.append(f"/outputs/{vehicle_name}")
 
+    pass_record = append_pass_record(result)
+
     return jsonify({
         "mode": result["mode"],
         "status": result.get("status", "recognized"),
@@ -312,6 +359,7 @@ def detect():
         "resultImage": f"/outputs/{output_path.name}",
         "plateImages": plate_images,
         "vehicleImages": vehicle_images,
+        "passRecord": pass_record,
     })
 
 
