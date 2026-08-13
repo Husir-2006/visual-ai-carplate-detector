@@ -1,18 +1,22 @@
 # 企业车牌识别与车辆管理系统
 
-本项目是 P402019B 创新应用综合实训课程大作业，面向校园/企业门岗车辆通行管理场景。系统支持上传车辆图片，自动检测车辆与车牌区域，识别车牌号，并根据车牌号查询车辆档案、通行记录和黑白名单信息。
+本项目是 P402019B 创新应用综合实训课程大作业，面向校园/企业门岗车辆通行管理场景。系统支持上传车辆图片，自动检测车辆与车牌区域，识别车牌号，并根据车牌查询车辆档案、通行记录、黑白名单和系统设置。
 
-## 重要说明：为什么国内车牌识别会不稳定
+项目当前包含两个版本：
 
-早期演示模型主要使用国外/印尼车牌数据训练，车牌颜色、字符结构、拍摄距离和中文省份简称都与中国蓝牌差异很大。因此在真实国内车牌上容易出现这些问题：
+- 非静态版：Flask 后端 + 前端页面 + YOLOv8/ OCR 推理，推荐用于演示。
+- 静态版：`static-demo.html`，用于无后端环境下快速展示页面形态。
 
-- 省份汉字丢失，例如 `粤A78T3R` 被识别成 `A78T3R` 或 `478T3R`。
-- 相似字符混淆，例如 `A/4`、`B/8`、`T/1`、`S/5`。
-- 车牌检测框偏移，导致 OCR 读到保险杠、车标或背景文字。
+## 核心功能
 
-当前版本已经增加了国内蓝牌的后处理规则和车辆档案模糊匹配，但更根本的改进方式是使用国内车牌数据集重新训练检测模型。
+- 车辆与车牌检测：优先加载 `models/yolov8_plate.pt` 国内蓝牌 YOLOv8 模型。
+- 车牌 OCR：优先使用 RapidOCR，兼容 PaddleOCR、EasyOCR、Tesseract 等方案。
+- 车辆档案查询：识别车牌后自动匹配 `data/fleet.json` 中的企业车辆档案。
+- 通行记录写入：每次识别成功后自动新增一条 `data/pass_records.json` 通行流水。
+- 管理模块：车辆档案、通行记录、黑白名单、系统设置均通过 JSON 接口驱动。
+- 证据返回：接口返回标注图、车辆裁剪图、车牌裁剪图和目标明细，便于演示和复核。
 
-## 一键运行系统
+## 一键运行
 
 双击：
 
@@ -26,140 +30,84 @@
 http://127.0.0.1:5000
 ```
 
-首次运行如果缺少基础依赖：
+基础依赖：
 
 ```bash
 pip install -r requirements.txt
 ```
 
-如需 PaddleOCR / EasyOCR / YOLOv8 训练能力：
+增强 OCR / YOLOv8 训练依赖：
 
 ```bash
 pip install -r requirements-ai.txt
 ```
 
-## 推荐国内数据集
+## 接口说明
 
-优先使用 CCPD 中国车牌数据集：
+- `/detect`：上传图片并返回识别结果，同时自动写入通行记录。
+- `/api/fleet`：车辆档案数据。
+- `/api/pass-records`：通行记录数据。
+- `/api/access-lists`：黑白名单数据。
+- `/api/settings`：系统设置数据。
 
-- CCPD2019：规模大，适合蓝牌检测和复杂场景训练。
-- CCPD2020：体积较小，包含更多国内新场景，适合课程项目先快速训练。
-- 数据源：Zenodo CCPD archive，记录号 `15647076`。
-- 官方项目：`https://github.com/detectRecog/CCPD`
+## 数据集与训练
 
-原始数据集较大，不放进最终提交包，只在报告中注明来源。
+早期演示数据包含国外/印尼车牌，能证明检测与 OCR 流程，但不适合真实中国蓝牌。后续项目引入 CCPD2020 国内车牌数据集，转换后得到 11776 张有效样本，并训练 YOLOv8 车牌检测模型。
 
-## 下载并转换 CCPD
+推荐数据集：
 
-推荐先下载 CCPD2020，约 0.85GB：
+- CCPD 官方项目：`https://github.com/detectRecog/CCPD`
+- Zenodo 数据归档：`https://zenodo.org/records/15647076`
+- 已使用文件：`CCPD2020.zip`
+
+下载：
 
 ```bash
-python download_ccpd_dataset.py --list
 python download_ccpd_dataset.py --contains CCPD2020 --target datasets/CCPD
 ```
 
-下载完成后，把 `datasets/CCPD/CCPD2020.zip` 解压到：
-
-```text
-datasets/CCPD/CCPD2020
-```
-
-转换为 YOLOv8 格式：
+转换：
 
 ```bash
 python prepare_ccpd_dataset.py --source datasets/CCPD --output datasets/ccpd_yolo --limit 50000 --clean
 ```
 
-输出结构：
-
-```text
-datasets/ccpd_yolo/
-  train/images
-  train/labels
-  valid/images
-  valid/labels
-  test/images
-  test/labels
-  data.yaml
-  ocr_labels.csv
-```
-
-其中 `ocr_labels.csv` 保存了从 CCPD 文件名解析出来的真实车牌号，后续如果要继续训练字符识别模型，可以直接复用。
-
-## 重新训练国内车牌检测模型
-
-CPU 训练：
-
-```bash
-python train_yolov8_plate.py --data datasets/ccpd_yolo/data.yaml --epochs 80 --imgsz 640 --batch 16 --device cpu --output models/yolov8_plate.pt
-```
-
-有 NVIDIA 显卡时建议改成：
+训练：
 
 ```bash
 python train_yolov8_plate.py --data datasets/ccpd_yolo/data.yaml --epochs 100 --imgsz 640 --batch 16 --device 0 --output models/yolov8_plate.pt
 ```
 
-也可以直接双击：
+已完成训练结果：
+
+- 有效样本：11776 张。
+- 训练轮数：86 轮提前停止。
+- 最佳模型：约第 66 轮。
+- mAP50：0.995。
+- mAP50-95：约 0.897。
+- 输出模型：`models/yolov8_plate.pt`。
+
+## 项目结构
 
 ```text
-训练国内车牌YOLOv8模型.bat
+visual-ai-campus-detector/
+  app.py                         Flask 后端入口
+  detector.py                    检测模型调度与结果绘制
+  ocr_engine.py                  OCR 调度与车牌文本清洗
+  train_yolov8_plate.py          YOLOv8 训练脚本
+  prepare_ccpd_dataset.py        CCPD 转 YOLOv8 数据脚本
+  data/                          演示车辆档案、记录、黑白名单和设置
+  models/                        课程模型文件
+  static/                        前端 JS/CSS
+  templates/                     Flask 页面模板
+  docs/                          数据集和结构说明
+  deliverables/                  报告、PPT、视频、日志、截图
+  24281098.zip                   最终提交包
 ```
 
-训练完成后重启 Flask 系统，程序会优先加载：
+## 最终提交材料
 
-```text
-models/yolov8_plate.pt
-```
-
-## 系统模块
-
-非静态版前端包含 5 个模块：
-
-- 识别工作台：上传图片，返回识别图、车辆图、车牌裁剪图和目标明细。
-- 车辆档案：查看登记车辆、车主/部门、权限和最近通行信息。
-- 通行记录：查看门岗通行流水。
-- 黑白名单：查看自动放行车辆和需要人工复核车辆。
-- 系统设置：查看当前模型优先级、OCR 引擎和识别阈值。
-
-后端接口：
-
-- `/detect`：图片识别接口。
-- `/api/fleet`：车辆档案 JSON。
-- `/api/pass-records`：通行记录 JSON。
-- `/api/access-lists`：黑白名单 JSON。
-- `/api/settings`：系统设置 JSON。
-
-## AI 推理策略
-
-检测模型优先级：
-
-```text
-models/yolov8_plate.pt 或 models/best.pt
-> models/yolov5s.onnx
-> models/tiny_plate_detector.pt
-> OpenCV 兜底检测
-```
-
-OCR 优先级：
-
-```text
-RapidOCR > PaddleOCR > EasyOCR > Tesseract > 数据集文件名标注兜底
-```
-
-车辆档案校正：
-
-```text
-OCR 原始结果
-> 清洗符号和噪声
-> 中国蓝牌结构校验
-> 近似字符纠错
-> 与车辆档案库模糊匹配
-```
-
-## 最终材料
-
-课程提交材料位于：
+最终课程材料位于：
 
 ```text
 deliverables/
@@ -171,4 +119,4 @@ deliverables/
 24281098.zip
 ```
 
-压缩包按组长学号命名，已排除原始数据集、运行缓存、旧包和临时预览文件。
+压缩包包含源码、模型、系统数据、课程报告、PPT、演示视频、讲稿、开发日志、沟通记录、个人实习实训日志和运行截图；不包含原始数据集、训练缓存、上传缓存和临时工作区。
