@@ -1,10 +1,10 @@
-﻿{
+{
   "white": [
-    {"plate":"BB8986","reason":"正式员工车辆","expire":"2027-07-31"},
-    {"plate":"XCJ-S77","reason":"研发中心长期车辆","expire":"2027-07-31"},
-    {"plate":"CAMPUS01","reason":"园区巡逻车辆","expire":"长期"}
+    {"plate": "BB8986", "reason": "正式员工车辆", "expire": "2027-07-31"},
+    {"plate": "XCJ-S77", "reason": "研发中心长期车辆", "expire": "2027-07-31"},
+    {"plate": "CAMPUS01", "reason": "园区巡逻车辆", "expire": "长期"}
   ],
   "black": [
-    {"plate":"VISITOR8","reason":"未登记车辆，需要人工复核","created":"2026-07-18"}
+    {"plate": "VISITOR8", "reason": "未登记车辆，需要人工复核", "created": "2026-07-18"}
   ]
 }
