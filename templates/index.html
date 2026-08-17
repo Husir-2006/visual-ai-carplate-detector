@@ -21,7 +21,7 @@
           <button type="button" data-view="fleet">车辆档案</button>
           <button type="button" data-view="records">通行记录</button>
           <button type="button" data-view="lists">黑白名单</button>
-          <button type="button" data-view="settings">系统设置</button>
+          <button type="button" data-view="settings">系统设置展示</button>
         </nav>
         <div class="operator-box">
           <span>值班岗亭</span>
@@ -106,7 +106,7 @@
               </div>
               <div class="table-wrap">
                 <table>
-                  <thead><tr><th>车牌号</th><th>车辆类型</th><th>车主/部门</th><th>权限</th><th>状态</th><th>最近通行</th></tr></thead>
+                  <thead><tr><th>车牌号</th><th>车辆类型</th><th>车主/部门</th><th>权限</th><th>状态</th><th>最近通行</th><th>操作</th></tr></thead>
                   <tbody id="fleetTable"></tbody>
                 </table>
               </div>
@@ -126,7 +126,7 @@
         <section class="view" data-view-panel="fleet">
           <section class="registry-panel full-panel">
             <div class="section-head compact"><div><h2>车辆档案</h2><p>企业登记车辆、权限和最近通行信息</p></div><input id="fleetViewSearch" type="search" placeholder="搜索车牌、部门、状态" /></div>
-            <div class="table-wrap"><table><thead><tr><th>车牌号</th><th>车辆类型</th><th>车辆型号</th><th>车主/部门</th><th>权限</th><th>状态</th><th>最近通行</th></tr></thead><tbody id="fleetViewTable"></tbody></table></div>
+            <div class="table-wrap"><table><thead><tr><th>车牌号</th><th>车辆类型</th><th>车辆型号</th><th>车主/部门</th><th>权限</th><th>状态</th><th>最近通行</th><th>操作</th></tr></thead><tbody id="fleetViewTable"></tbody></table></div>
           </section>
         </section>
 
@@ -138,6 +138,10 @@
         </section>
 
         <section class="view" data-view-panel="lists">
+          <section class="registry-panel full-panel">
+            <div class="section-head compact"><div><h2>待审核列表</h2><p>识别后待人工区分的车辆，请逐一移入白名单或黑名单</p></div></div>
+            <div id="pendingList" class="record-cards"></div>
+          </section>
           <section class="list-grid">
             <section class="registry-panel"><div class="section-head compact"><div><h2>白名单</h2><p>自动放行车辆</p></div></div><div id="whiteList" class="record-cards"></div></section>
             <section class="registry-panel"><div class="section-head compact"><div><h2>黑名单</h2><p>需要人工复核车辆</p></div></div><div id="blackList" class="record-cards"></div></section>
@@ -152,6 +156,89 @@
         </section>
       </main>
     </div>
+
+    <div class="modal-mask" id="editModal" hidden>
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="editModalTitle">
+        <div class="modal-head">
+          <div><h2 id="editModalTitle">编辑车辆档案</h2><p id="editModalSubtitle">完善车辆信息后保存，状态可在核验后更新</p></div>
+          <button class="modal-close" id="editModalClose" type="button" aria-label="关闭">×</button>
+        </div>
+        <form id="editForm" novalidate>
+          <input type="hidden" id="editMode" value="edit" />
+          <input type="hidden" id="editPlate" />
+          <div class="modal-body">
+            <div class="form-grid">
+              <label class="form-plate">车牌号
+                <input id="editPlateInput" type="text" placeholder="输入车牌号" />
+              </label>
+              <label>车辆类型<input id="editType" type="text" placeholder="如：小型乘用车" /></label>
+              <label>车主/部门<input id="editOwner" type="text" placeholder="如：行政部 · 张明" /></label>
+              <label>车辆型号<input id="editBrand" type="text" placeholder="如：Volkswagen Lavida" /></label>
+              <label>通行权限<input id="editPermit" type="text" placeholder="如：长期通行" /></label>
+              <label>联系电话<input id="editPhone" type="text" placeholder="如：138****7821" /></label>
+              <label>车辆颜色<input id="editColor" type="text" placeholder="如：白色" /></label>
+              <label>使用场景<input id="editPurpose" type="text" placeholder="如：员工车辆" /></label>
+              <label>状态
+                <select id="editStatus">
+                  <option value="正常">正常</option>
+                  <option value="需核验">需核验</option>
+                  <option value="异常">异常</option>
+                </select>
+              </label>
+            </div>
+          </div>
+          <div class="modal-foot">
+            <button type="button" class="ghost-btn" id="editModalCancel">取消</button>
+            <button type="submit" class="primary-btn" id="editModalSave">保存</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal-mask" id="accessEditModal" hidden>
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="accessEditTitle">
+        <div class="modal-head">
+          <div><h2 id="accessEditTitle">编辑名单车辆信息</h2><p id="accessEditSubtitle">补充用途说明与日期</p></div>
+          <button class="modal-close" id="accessEditClose" type="button" aria-label="关闭">×</button>
+        </div>
+        <form id="accessEditForm" novalidate>
+          <input type="hidden" id="accessEditList" value="white" />
+          <input type="hidden" id="accessEditPlate" />
+          <div class="modal-body">
+            <div class="form-grid">
+              <label class="form-plate">车牌号<input id="accessEditPlateInput" type="text" readonly /></label>
+              <label>用途说明
+                <select id="accessEditReason">
+                  <option value="待补充">待补充</option>
+                  <option value="员工车辆">员工车辆</option>
+                  <option value="访客业务车辆">访客业务车辆</option>
+                  <option value="施工作业车辆">施工作业车辆</option>
+                  <option value="特殊任务车辆（如消防、公安、急救）">特殊任务车辆（如消防、公安、急救）</option>
+                  <option value="货运车辆">货运车辆</option>
+                </select>
+              </label>
+              <label id="accessWhiteField" class="form-plate" hidden>有效期
+                <select id="accessExpireType">
+                  <option value="default">默认</option>
+                  <option value="date">具体日期</option>
+                  <option value="long">长期</option>
+                </select>
+              </label>
+              <label id="accessExpireDateWrap" class="form-plate" hidden>到期日期（8 位数字）
+                <input id="accessExpireDate" type="text" placeholder="如：20260818（年月日）" />
+              </label>
+            </div>
+          </div>
+          <div class="modal-foot">
+            <button type="button" class="ghost-btn" id="accessEditCancel">取消</button>
+            <button type="submit" class="primary-btn">保存</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="toast" id="toast" hidden></div>
+
     <script src="/static/app.js"></script>
   </body>
 </html>

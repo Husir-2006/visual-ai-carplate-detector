@@ -1,10 +1,53 @@
 {
+  "pending": [
+    {
+      "plate": "吉A10VE7",
+      "reason": "识别后待人工核验",
+      "created": "2026-08-17 18:03"
+    },
+    {
+      "plate": "京KBT355",
+      "reason": "识别后待人工核验",
+      "created": "2026-08-17 18:03"
+    },
+    {
+      "plate": "湘DGQ550",
+      "reason": "识别后待人工核验",
+      "created": "2026-08-17"
+    }
+  ],
   "white": [
-    {"plate": "BB8986", "reason": "正式员工车辆", "expire": "2027-07-31"},
-    {"plate": "XCJ-S77", "reason": "研发中心长期车辆", "expire": "2027-07-31"},
-    {"plate": "CAMPUS01", "reason": "园区巡逻车辆", "expire": "长期"}
+    {
+      "plate": "BB8986",
+      "reason": "员工车辆",
+      "expire": "长期"
+    },
+    {
+      "plate": "XCJ-S77",
+      "reason": "研发中心长期车辆",
+      "expire": "20270731"
+    },
+    {
+      "plate": "CAMPUS01",
+      "reason": "园区巡逻车辆",
+      "expire": "20280630"
+    },
+    {
+      "plate": "粤BAH888",
+      "reason": "员工车辆",
+      "expire": "20260831"
+    }
   ],
   "black": [
-    {"plate": "VISITOR8", "reason": "未登记车辆，需要人工复核", "created": "2026-07-18"}
+    {
+      "plate": "VISITOR8",
+      "reason": "未登记车辆，需要人工复核",
+      "created": "2026-07-18"
+    },
+    {
+      "plate": "粤A78T3R",
+      "reason": "识别后待人工核验",
+      "created": "2026-08-17 18:02"
+    }
   ]
 }

@@ -1,6 +1,6 @@
+from datetime import datetime
 from pathlib import Path
 from uuid import uuid4
-from datetime import datetime
 import json
 import os
 import re
@@ -56,9 +56,11 @@ def read_json(name, fallback):
 
 
 def write_json(name, data):
-    DATA_DIR.mkdir(exist_ok=True)
     path = DATA_DIR / name
-    path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    DATA_DIR.mkdir(exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    tmp.replace(path)
 
 
 def allowed_file(filename):
@@ -128,44 +130,6 @@ def unique_plate_numbers(numbers):
         if text not in clean:
             clean.append(text)
     return clean
-
-
-def find_fleet_record(plate_number):
-    normalized = plate_core(plate_number)
-    if not normalized:
-        return None
-    for item in read_json("fleet.json", []):
-        if plate_core(item.get("plate")) == normalized:
-            return item
-    return None
-
-
-def append_pass_record(result):
-    numbers = result.get("summary", {}).get("plateNumbers", [])
-    plate_number = numbers[0] if numbers else ""
-    if not plate_number:
-        return None
-
-    fleet_record = find_fleet_record(plate_number)
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    owner = fleet_record.get("owner") if fleet_record else "未登记车辆"
-    permit = fleet_record.get("permit") if fleet_record else "待人工登记"
-    status = fleet_record.get("status") if fleet_record else "未授权"
-    result_text = "自动放行" if status == "正常" else "识别后进入人工复核"
-
-    record = {
-        "time": now,
-        "gate": "AI识别工作台",
-        "plate": plate_number,
-        "owner": owner,
-        "direction": "入场",
-        "result": f"{result_text} · {permit}",
-    }
-
-    records = read_json("pass_records.json", [])
-    records.insert(0, record)
-    write_json("pass_records.json", records[:200])
-    return record
 
 
 def visual_equal(a, b):
@@ -274,6 +238,156 @@ def correct_plate_with_fleet(result):
     return result
 
 
+def now_str():
+    return datetime.now().strftime("%Y-%m-%d %H:%M")
+
+
+def today_str():
+    return datetime.now().strftime("%Y-%m-%d")
+
+
+def date_only(value):
+    """将可能带时刻的时间规范化为仅日期（YYYY-MM-DD）。"""
+    text = str(value or "").strip()
+    if re.match(r"^\d{4}-\d{2}-\d{2}", text):
+        return text[:10]
+    return text
+
+
+def valid_date8(value):
+    """校验 8 位数字日期（YYYYMMDD，即 4 位年 + 2 位月 + 2 位日）。"""
+    text = str(value or "").strip()
+    if not re.fullmatch(r"\d{8}", text):
+        return False
+    try:
+        datetime.strptime(text, "%Y%m%d")
+        return True
+    except ValueError:
+        return False
+
+
+def current_gate():
+    settings = read_json("settings.json", {})
+    return {
+        "gate": str(settings.get("gate") or "南门 01").strip(),
+        "direction": str(settings.get("direction") or "入场").strip(),
+    }
+
+
+def upsert_fleet_from_detect(plates, detected_type, gate):
+    """识别到车牌后自动记入车辆档案；新车辆状态统一为「需核验」。"""
+    fleet = read_json("fleet.json", [])
+    existing = {raw_plate_text(item.get("plate", "")): item for item in fleet}
+    added = []
+    updated = []
+    now = now_str()
+    for plate in plates:
+        text = raw_plate_text(plate)
+        if not text or text in {"???", "未识别"}:
+            continue
+        key = text.upper()
+        if key in existing:
+            item = existing[key]
+            item["lastSeen"] = f"{now} · {gate}"
+            updated.append(text)
+        else:
+            fleet.append({
+                "plate": text,
+                "type": detected_type or "未知",
+                "owner": "未登记车辆",
+                "brand": "待完善",
+                "permit": "待审批",
+                "status": "需核验",
+                "lastSeen": f"{now} · {gate}",
+                "phone": "未登记",
+                "color": "未知",
+                "purpose": "识别后自动登记，待人工完善",
+            })
+            existing[key] = fleet[-1]
+            added.append(text)
+    if added or updated:
+        write_json("fleet.json", fleet)
+    return added, updated
+
+
+def record_pass(plates, gate, direction):
+    """识别到车牌后自动写入一条通行记录。"""
+    fleet = read_json("fleet.json", [])
+    owner_map = {
+        raw_plate_text(item.get("plate", "")): str(item.get("owner") or "未登记车辆")
+        for item in fleet
+    }
+    records = read_json("pass_records.json", [])
+    now = now_str()
+    saved = []
+    for plate in plates:
+        text = raw_plate_text(plate)
+        if not text or text in {"???", "未识别"}:
+            continue
+        records.append({
+            "time": now,
+            "gate": gate,
+            "plate": text,
+            "owner": owner_map.get(text.upper(), "未登记车辆"),
+            "direction": direction,
+            "result": "识别后自动登记",
+        })
+        saved.append(text)
+    if saved:
+        write_json("pass_records.json", records)
+    return saved
+
+
+def best_plate_text(plates, plate_numbers):
+    """从识别结果中挑出置信度最高的有效车牌，仅该车牌用于档案与通行记录入库。"""
+    numbers = set(plate_numbers or [])
+    best = None
+    best_conf = -1.0
+    for plate in plates:
+        text = plate.get("text")
+        if not text or text in {"???", "未识别"}:
+            continue
+        if "?" in raw_plate_text(text):
+            continue
+        if text not in numbers:
+            continue
+        conf = float(plate.get("confidence", 0) or 0)
+        if conf > best_conf:
+            best = text
+            best_conf = conf
+    if best is None and plate_numbers:
+        best = plate_numbers[0]
+    return best
+
+
+def upsert_pending_from_detect(plates):
+    """识别成功的车牌自动进入待审核列表（若尚未在任何名单中）。"""
+    lists = read_json("access_lists.json", {})
+    lists.setdefault("white", [])
+    lists.setdefault("black", [])
+    lists.setdefault("pending", [])
+    known = set()
+    for name in ("white", "black", "pending"):
+        for item in lists[name]:
+            known.add(raw_plate_text(item.get("plate", "")))
+    added = []
+    today = today_str()
+    for plate in plates:
+        text = raw_plate_text(plate)
+        if not text or text in {"???", "未识别"} or "?" in text or text in known:
+            continue
+        lists["pending"].append({
+            "plate": text,
+            "reason": "识别成功，待人工归类",
+            "created": today,
+        })
+        known.add(text)
+        added.append(text)
+    if added:
+        write_json("access_lists.json", lists)
+    return added
+
+
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -284,14 +398,145 @@ def fleet():
     return jsonify(read_json("fleet.json", []))
 
 
+FLEET_EDITABLE = {"type", "owner", "brand", "permit", "status", "phone", "color", "purpose"}
+
+
+def normalize_fleet_record(data, plate):
+    return {
+        "plate": plate,
+        "type": str(data.get("type") or "未知").strip(),
+        "owner": str(data.get("owner") or "未登记车辆").strip(),
+        "brand": str(data.get("brand") or "待完善").strip(),
+        "permit": str(data.get("permit") or "待审批").strip(),
+        "status": str(data.get("status") or "需核验").strip(),
+        "lastSeen": str(data.get("lastSeen") or "无记录").strip(),
+        "phone": str(data.get("phone") or "未登记").strip(),
+        "color": str(data.get("color") or "未知").strip(),
+        "purpose": str(data.get("purpose") or "手动登记").strip(),
+    }
+
+
+@app.route("/api/fleet", methods=["POST"])
+def create_fleet_record():
+    data = request.get_json(silent=True) or {}
+    plate = raw_plate_text(data.get("plate", ""))
+    if not plate or plate in {"???", "未识别"}:
+        return jsonify({"error": "缺少有效的车牌号"}), 400
+    fleet = read_json("fleet.json", [])
+    for item in fleet:
+        if raw_plate_text(item.get("plate", "")) == plate:
+            return jsonify({"error": "该车牌已存在档案，请直接编辑"}), 409
+    record = normalize_fleet_record(data, plate)
+    fleet.append(record)
+    write_json("fleet.json", fleet)
+    return jsonify({"ok": True, "record": record}), 201
+
+
+@app.route("/api/fleet/<plate>", methods=["PUT"])
+def update_fleet_record(plate):
+    data = request.get_json(silent=True) or {}
+    fleet = read_json("fleet.json", [])
+    for item in fleet:
+        if raw_plate_text(item.get("plate", "")) == raw_plate_text(plate):
+            for key, value in data.items():
+                if key in FLEET_EDITABLE:
+                    item[key] = str(value or "").strip()
+            write_json("fleet.json", fleet)
+            return jsonify({"ok": True, "record": item})
+    return jsonify({"error": "车辆档案不存在"}), 404
+
+
 @app.route("/api/pass-records")
 def pass_records():
     return jsonify(read_json("pass_records.json", []))
 
 
-@app.route("/api/access-lists")
+@app.route("/api/access-lists", methods=["GET", "POST"])
 def access_lists():
-    return jsonify(read_json("access_lists.json", {"white": [], "black": []}))
+    lists = read_json("access_lists.json", {})
+    lists.setdefault("white", [])
+    lists.setdefault("black", [])
+    lists.setdefault("pending", [])
+
+    if request.method == "POST":
+        # 人工将待审核车辆归类到白名单 / 黑名单，或移回待审核
+        data = request.get_json(silent=True) or {}
+        plate = raw_plate_text(data.get("plate", ""))
+        target = str(data.get("target") or "").strip()
+        if not plate:
+            return jsonify({"error": "缺少车牌号"}), 400
+        if target not in {"white", "black", "pending"}:
+            return jsonify({"error": "目标名单无效"}), 400
+
+        source = None
+        record = None
+        for name in ("white", "black", "pending"):
+            for item in lists[name]:
+                if raw_plate_text(item.get("plate", "")) == plate:
+                    source = name
+                    record = item
+                    break
+            if record is not None:
+                break
+        if record is None:
+            return jsonify({"error": "列表中不存在该车辆"}), 404
+        if source == target:
+            return jsonify({"ok": True, "record": record, "from": source, "to": target})
+        if any(raw_plate_text(item.get("plate", "")) == plate for item in lists[target]):
+            return jsonify({"error": "目标名单中已存在该车辆"}), 409
+
+        lists[source].remove(record)
+        if target == "white":
+            # 白名单有效期三选项之一：默认 / 具体日期(8位数字) / 长期
+            record["expire"] = record.get("expire") or "默认"
+            record.pop("created", None)
+        else:  # black / pending
+            # 加入时间仅到日期，不精确到时刻
+            record["created"] = date_only(record.get("created")) or today_str()
+            record.pop("expire", None)
+        lists[target].append(record)
+        write_json("access_lists.json", lists)
+        return jsonify({"ok": True, "record": record, "from": source, "to": target})
+
+    return jsonify(lists)
+
+
+@app.route("/api/access-lists/<plate>", methods=["PUT"])
+def update_access_vehicle(plate):
+    """人工补充/编辑名单中车辆的信息（用途说明、日期字段）。"""
+    data = request.get_json(silent=True) or {}
+    lists = read_json("access_lists.json", {})
+    lists.setdefault("white", [])
+    lists.setdefault("black", [])
+    lists.setdefault("pending", [])
+    target = None
+    record = None
+    for name in ("white", "black", "pending"):
+        for item in lists[name]:
+            if raw_plate_text(item.get("plate", "")) == raw_plate_text(plate):
+                target = name
+                record = item
+                break
+        if record is not None:
+            break
+    if record is None:
+        return jsonify({"error": "列表中不存在该车辆"}), 404
+
+    reason = str(data.get("reason") or "").strip()
+    if reason:
+        record["reason"] = reason
+    if target == "white":
+        expire = str(data.get("expire") or "").strip()
+        if expire:
+            if expire not in {"默认", "长期"} and not valid_date8(expire):
+                return jsonify({"error": "有效期格式错误：默认 / 长期 / 8位数字（YYYYMMDD）"}), 400
+            record["expire"] = expire
+    else:
+        created = str(data.get("created") or "").strip()
+        if created:
+            record["created"] = date_only(created)
+    write_json("access_lists.json", lists)
+    return jsonify({"ok": True, "record": record, "list": target})
 
 
 @app.route("/api/settings")
@@ -346,7 +591,20 @@ def detect():
         cv2.imencode(".jpg", crop)[1].tofile(str(vehicle_path))
         vehicle_images.append(f"/outputs/{vehicle_name}")
 
-    pass_record = append_pass_record(result)
+    auto = {"passRecordSaved": False, "fleetAdded": [], "fleetUpdated": [], "pendingAdded": []}
+    recognized = result["summary"].get("plateNumbers", [])
+    # 只登记置信度最高的一个车牌，避免正确识别与误识别同时入库
+    primary_plate = best_plate_text(result["plates"], recognized)
+    if primary_plate:
+        gate_info = current_gate()
+        auto["fleetAdded"], auto["fleetUpdated"] = upsert_fleet_from_detect(
+            [primary_plate], result.get("vehicleType"), gate_info["gate"]
+        )
+        auto["passRecordSaved"] = bool(
+            record_pass([primary_plate], gate_info["gate"], gate_info["direction"])
+        )
+        # 识别成功的车牌自动进入待审核列表（若尚未在任何名单中）
+        auto["pendingAdded"] = upsert_pending_from_detect([primary_plate])
 
     return jsonify({
         "mode": result["mode"],
@@ -359,7 +617,8 @@ def detect():
         "resultImage": f"/outputs/{output_path.name}",
         "plateImages": plate_images,
         "vehicleImages": vehicle_images,
-        "passRecord": pass_record,
+        "primaryPlate": primary_plate or "",
+        "auto": auto,
     })
 
 
